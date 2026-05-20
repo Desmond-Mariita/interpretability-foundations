@@ -1,0 +1,66 @@
+# Model configurations for P1.
+#
+# One default config per model family. The CV is for honest performance
+# estimation, not model selection — we deliberately do not pick the best
+# config per fold (would inflate test estimates).
+#
+# Class imbalance is ~13% positive. Each model has a family-specific way to
+# handle it; class_weight='balanced' or scale_pos_weight = (1-p)/p so the
+# minority class is upweighted.
+
+random_state: 1337
+
+categorical_features: [gender, admission_type, first_careunit]
+target_col: target
+id_col: stay_id
+
+models:
+  logistic:
+    type: l2_logistic
+    # sklearn LogisticRegression
+    C: 1.0
+    max_iter: 2000
+    class_weight: balanced
+    # LR is the only model that needs upfront imputation + scaling.
+    impute_strategy: median
+    standardise: true
+
+  decision_tree:
+    type: decision_tree
+    # sklearn DecisionTreeClassifier — shallow on purpose so the decision
+    # path stays human-readable.
+    max_depth: 5
+    min_samples_leaf: 200
+    class_weight: balanced
+    # Tree models accept NaN natively in sklearn>=1.3.
+
+  ebm:
+    type: ebm
+    # interpret-ml ExplainableBoostingClassifier
+    # interactions=10 keeps the shape-function output digestible.
+    interactions: 10
+    max_bins: 256
+    outer_bags: 8
+    inner_bags: 0
+    learning_rate: 0.01
+    min_samples_leaf: 5
+
+  lightgbm:
+    type: lightgbm
+    # LightGBMClassifier — handles NaN natively. scale_pos_weight set at
+    # runtime from the training-pool positive rate.
+    n_estimators: 600
+    learning_rate: 0.05
+    num_leaves: 63
+    min_child_samples: 200
+    subsample: 0.9
+    colsample_bytree: 0.9
+    reg_lambda: 1.0
+    n_jobs: -1
+    deterministic: true
+
+outputs:
+  metrics: metrics.json          # committed at project root
+  models_dir: outputs/models     # gitignored
+  mlruns_dir: outputs/mlruns     # gitignored
+  test_predictions: outputs/test_predictions.parquet  # gitignored

@@ -33,10 +33,14 @@ splits:
 # Full pipeline end-to-end.
 pipeline: cohort features splits
 
-# Train + evaluate the four models. (Lands later in week 2.)
-train:
-    @echo "Modeling lands in scripts/10_train.py later this week."
-    @exit 1
+# Train + evaluate the four models. Writes metrics.json at project root and
+# per-model pickles to outputs/models/. MLflow logs to outputs/mlruns/.
+train *FLAGS:
+    cd "{{project_root}}" && uv run python scripts/10_train.py {{FLAGS}}
+
+# Re-score the test set, write calibration / ROC / frontier PNGs to assets/.
+eval *FLAGS:
+    cd "{{project_root}}" && uv run python scripts/11_eval.py {{FLAGS}}
 
 # Smoke tests for this project only. Coverage enforcement lives in the root
 # `just ci`, which runs the full suite; this recipe is for inner-loop dev.
