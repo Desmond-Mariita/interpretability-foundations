@@ -19,6 +19,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.10",
   "pytest>=8.2",
+  "pytest-cov>=5.0",
   "pre-commit>=3.7",
   "nbstripout>=0.7",
 ]
@@ -37,8 +38,22 @@ src = ["src", "tests"]
 extend-exclude = ["legacy", "**/_vendored"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["E501"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D"]
+ignore = [
+  "E501",
+  "D203",  # one-blank-line-before-class: conflicts with D211
+  "D213",  # multi-line-summary-second-line: conflicts with D212 (Google convention picks D212)
+]
+
+[tool.ruff.lint.pydocstyle]
+# Google-style docstrings on all public functions, classes, and methods
+# (mirrors keragita's INV-012; enforced via ruff's pydocstyle plugin here).
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"**/__init__.py" = ["D104"]  # module docstrings are optional on package __init__
+"apps/**" = ["D"]            # demo apps are not part of the public API surface
 
 [tool.ruff.format]
 quote-style = "double"
@@ -57,4 +72,17 @@ markers = [
   "smoke: end-to-end plumbing tests on tiny synthetic data",
   "slow: tests that exceed the 8-minute CI budget; excluded from CI",
 ]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --cov=awake --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+branch = true
+source = ["awake"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+]

@@ -1,3 +1,5 @@
+"""Shared matplotlib styling for figures across all projects."""
+
 from __future__ import annotations
 
 import matplotlib as mpl
@@ -14,7 +16,12 @@ PALETTE: tuple[str, ...] = (
 
 
 def apply_style() -> None:
-    """Apply a consistent matplotlib style across notebooks and figures."""
+    """Apply a consistent matplotlib style across notebooks and figures.
+
+    Sets DPI, font family, spine visibility, grid alpha, and the colour cycle
+    to ``PALETTE`` so every figure in the portfolio reads as one body of work.
+    Idempotent: callers can invoke it multiple times in a session.
+    """
     mpl.rcParams.update(
         {
             "figure.dpi": 110,

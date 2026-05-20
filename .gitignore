@@ -13,6 +13,10 @@ dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Notebook artefacts (HTML is committed; raw outputs are stripped)
 .ipynb_checkpoints/
