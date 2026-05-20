@@ -17,7 +17,9 @@ from PIL import Image
 EXAMPLE_CAPTION = "this is an example caption — replace with the real demo example in week 4"
 
 
-def predict(image: Image.Image | None, caption: str) -> tuple[str, dict[str, float], dict[str, float]]:
+def predict(
+    image: Image.Image | None, caption: str
+) -> tuple[str, dict[str, float], dict[str, float]]:
     """Stub predictor returning illustrative outputs.
 
     The real implementation will load CLIP-ViT-B/32, encode the inputs, run the

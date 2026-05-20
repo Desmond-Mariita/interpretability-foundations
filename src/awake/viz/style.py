@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib as mpl
+from cycler import cycler
 
 PALETTE: tuple[str, ...] = (
     "#1f4e79",  # deep blue
@@ -24,6 +25,6 @@ def apply_style() -> None:
             "axes.spines.right": False,
             "axes.grid": True,
             "grid.alpha": 0.25,
-            "axes.prop_cycle": mpl.cycler(color=list(PALETTE)),
+            "axes.prop_cycle": cycler(color=list(PALETTE)),
         }
     )

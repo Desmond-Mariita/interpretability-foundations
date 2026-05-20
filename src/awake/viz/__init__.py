@@ -1,3 +1,3 @@
-from awake.viz.style import apply_style, PALETTE
+from awake.viz.style import PALETTE, apply_style
 
-__all__ = ["apply_style", "PALETTE"]
+__all__ = ["PALETTE", "apply_style"]

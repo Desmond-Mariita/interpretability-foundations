@@ -34,6 +34,7 @@ packages = ["src/awake"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+extend-exclude = ["legacy", "**/_vendored"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
