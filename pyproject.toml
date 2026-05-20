@@ -53,7 +53,6 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
 "**/__init__.py" = ["D104"]  # module docstrings are optional on package __init__
-"apps/**" = ["D"]            # demo apps are not part of the public API surface
 
 [tool.ruff.format]
 quote-style = "double"

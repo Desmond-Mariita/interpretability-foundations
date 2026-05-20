@@ -20,11 +20,21 @@ EXAMPLE_CAPTION = "this is an example caption — replace with the real demo exa
 def predict(
     image: Image.Image | None, caption: str
 ) -> tuple[str, dict[str, float], dict[str, float]]:
-    """Stub predictor returning illustrative outputs.
+    """Return placeholder prediction, class confidences, and modality shares.
 
     The real implementation will load CLIP-ViT-B/32, encode the inputs, run the
     LightGBM head, and compute a 2-player Shapley attribution over the image
-    and text feature groups.
+    and text feature groups. This stub returns deterministic-but-illustrative
+    numbers seeded on the inputs so the UI shape can be reviewed.
+
+    Args:
+        image: Uploaded meme image, or ``None`` when no file has been chosen.
+        caption: Caption text accompanying the meme.
+
+    Returns:
+        A three-tuple of ``(label, class_confidence, modality_share)``:
+        ``label`` is a short string for the gr.Label widget, and the two
+        dicts map class/modality names to floats in ``[0, 1]``.
     """
     if image is None or not caption.strip():
         return "no input", {"benign": 0.0, "hateful": 0.0}, {"image": 0.0, "text": 0.0}
@@ -42,6 +52,12 @@ def predict(
 
 
 def build_interface() -> gr.Blocks:
+    """Build the Gradio Blocks UI wired to ``predict``.
+
+    Returns:
+        A ``gr.Blocks`` instance ready to ``.launch()``; kept as a function
+        so tests and the HF Space entrypoint share the same construction.
+    """
     with gr.Blocks(title="Modality attribution demo") as demo:
         gr.Markdown(
             "## Modality attribution demo (hello-world)\n\n"
