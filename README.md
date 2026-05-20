@@ -10,15 +10,15 @@ critical-care data, through faithfulness benchmarking on text classifiers, modal
 for multimodal fusion, a comparison of two visual-question-answering pipelines, and a look inside
 a small transformer.
 
-> **Status.** v0.x scaffolding. Project deliverables are under active build; see `CHANGELOG.md`.
+> **Status.** v0.1.0 — Project 1 shipped; Projects 2-5 under active build. See `CHANGELOG.md`.
 
-<!-- HERO_FIGURE -->
+![hero](projects/01-tabular-mimic/assets/frontier.png)
 
 ## Projects
 
 | | Project | Question | Headline result |
 |---|---|---|---|
-| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | How much accuracy do interpretable models cost on ICU mortality risk? | _coming soon_ |
+| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | How much accuracy do interpretable models cost on ICU mortality risk? | EBM lands within 1.0 AUROC point of LightGBM (0.879 vs 0.889) and beats it on calibration. |
 | 2 | [`02-text-eraser`](projects/02-text-eraser) | Which text-classification explainer is actually faithful? | _coming soon_ |
 | 3 | [`03-multimodal-hatefulmemes`](projects/03-multimodal-hatefulmemes) | How much of a fused image+text decision came from each modality? | _coming soon_ |
 | 4 | [`04-vqa-aokvqa`](projects/04-vqa-aokvqa) | Do caption-then-LLM explanations actually describe the image? | _coming soon_ |
