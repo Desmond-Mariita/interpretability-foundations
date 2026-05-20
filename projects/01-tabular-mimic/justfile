@@ -1,0 +1,44 @@
+set shell := ["bash", "-uc"]
+set dotenv-load := true
+
+# Cohort, features, and splits run from the project root via `cd`; output paths
+# are absolute so MLflow logging and Parquet writes don't depend on cwd.
+project_root := justfile_directory()
+default_mimic_path := env_var_or_default("MIMIC_PATH", env_var("HOME") + "/Physionet/mimic-iv-3.1")
+
+# List recipes.
+default:
+    @just --list
+
+# Print where MIMIC is expected. Does NOT download anything.
+data:
+    @echo "Expected MIMIC-IV root: {{default_mimic_path}}"
+    @echo "Required modules:       hosp/ and icu/ (csv.gz files)"
+    @test -d "{{default_mimic_path}}/hosp" || (echo "FATAL: hosp/ not found at {{default_mimic_path}}/hosp" && exit 1)
+    @test -d "{{default_mimic_path}}/icu"  || (echo "FATAL: icu/  not found at {{default_mimic_path}}/icu"  && exit 1)
+    @echo "Both modules present. Set MIMIC_PATH in .env to override."
+
+# Build the cohort table. Writes outputs/cohort.parquet + outputs/cohort_stats.json.
+cohort:
+    cd "{{project_root}}" && uv run python scripts/00_build_cohort.py --mimic-path "{{default_mimic_path}}"
+
+# Extract first-24h features for cohort stays. Reads cohort.parquet, writes features.parquet.
+features:
+    cd "{{project_root}}" && uv run python scripts/01_extract_features.py --mimic-path "{{default_mimic_path}}"
+
+# Build subject-grouped CV splits. Writes splits.parquet.
+splits:
+    cd "{{project_root}}" && uv run python scripts/02_make_splits.py
+
+# Full pipeline end-to-end.
+pipeline: cohort features splits
+
+# Train + evaluate the four models. (Lands later in week 2.)
+train:
+    @echo "Modeling lands in scripts/10_train.py later this week."
+    @exit 1
+
+# Smoke tests for this project only. Coverage enforcement lives in the root
+# `just ci`, which runs the full suite; this recipe is for inner-loop dev.
+test:
+    cd "{{project_root}}/../.." && uv run pytest projects/01-tabular-mimic/tests -m "unit or smoke" --no-cov

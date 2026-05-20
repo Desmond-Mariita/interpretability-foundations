@@ -1,0 +1,52 @@
+# First-24h feature extraction. itemids and grouping mirror the MIT-LCP
+# firstday_vitals + firstday_labs concept views; see
+# https://github.com/MIT-LCP/mimic-code/tree/main/mimic-iv/concepts.
+#
+# Each feature collapses one or more itemids into a single normalised series.
+# `coerce_from_f_itemids` (temperature only) marks itemids stored in Fahrenheit
+# that should be converted to Celsius before aggregation.
+
+window_hours: 24
+aggregates: [first, min, max, mean]
+
+# Vitals come from icu.chartevents (joined on stay_id).
+vitals:
+  heart_rate:    { itemids: [220045] }
+  sbp:           { itemids: [220050, 220179] }          # invasive + non-invasive
+  dbp:           { itemids: [220051, 220180] }
+  mbp:           { itemids: [220052, 220181, 225312] }
+  resp_rate:     { itemids: [220210, 224690] }
+  temperature_c:
+    itemids: [223762]
+    coerce_from_f_itemids: [223761]
+  spo2:          { itemids: [220277] }
+
+# Labs come from hosp.labevents (joined on subject_id + hadm_id; labevents
+# has no stay_id, so the time-window filter is the load-bearing one).
+labs:
+  hematocrit:    { itemids: [51221, 50810] }
+  hemoglobin:    { itemids: [51222, 50811] }
+  platelet:      { itemids: [51265] }
+  wbc:           { itemids: [51301, 51300] }
+  bun:           { itemids: [51006] }
+  creatinine:    { itemids: [50912] }
+  glucose:       { itemids: [50931, 50809] }
+  sodium:        { itemids: [50824, 50983] }
+  potassium:     { itemids: [50822, 50971] }
+  chloride:      { itemids: [50806, 50902] }
+  bicarbonate:   { itemids: [50803, 50882] }
+
+# Physiologic clipping: values outside [low, high] are dropped pre-aggregation.
+# Bounds taken from MIT-LCP firstday_vitals.sql.
+plausibility:
+  heart_rate:    [0, 300]
+  sbp:           [0, 400]
+  dbp:           [0, 300]
+  mbp:           [0, 350]
+  resp_rate:     [0, 70]
+  temperature_c: [14.2, 47]
+  spo2:          [0, 100]
+  # Labs are left unclipped here; outlier handling happens during modelling.
+
+outputs:
+  features: outputs/features.parquet

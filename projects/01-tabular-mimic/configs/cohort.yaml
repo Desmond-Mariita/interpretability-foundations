@@ -1,0 +1,21 @@
+# Cohort definition for P1 — in-hospital mortality on MIMIC-IV first-24h ICU features.
+#
+# Mirrors the MIT-LCP/mimic-code conventions (Johnson et al.); see
+# docs/decisions/002-mimic-cohort.md for the rationale of each filter.
+
+mimic_version: "3.1"  # spec named v3.0; user is on v3.1, schema is forward-compatible
+
+# Inclusion filters
+min_age_years: 18                # adults only
+first_icu_stay_per_admission: true
+min_los_icu_hours: 24            # otherwise the 24h feature window is undefined,
+                                 # unless the patient died inside it (handled below).
+include_inhospital_deaths_under_24h: true
+
+# Target
+target: hospital_expire_flag     # admissions.hospital_expire_flag (in-hospital mortality)
+
+# Output
+outputs:
+  cohort: outputs/cohort.parquet  # gitignored; the data table
+  stats: cohort_stats.json        # committed; lives at the project root

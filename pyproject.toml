@@ -9,9 +9,12 @@ requires-python = "==3.11.*"
 dependencies = [
   "numpy>=1.26",
   "pandas>=2.2",
+  "pyarrow>=15.0",
+  "duckdb>=1.0",
   "matplotlib>=3.8",
   "scikit-learn>=1.4",
   "mlflow>=2.12",
+  "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -65,7 +68,8 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "projects"]
+python_files = ["test_*.py"]
 markers = [
   "unit: fast pure-function tests with no external resources",
   "smoke: end-to-end plumbing tests on tiny synthetic data",

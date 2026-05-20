@@ -1,0 +1,41 @@
+{
+  "mimic_version": "3.1",
+  "n_stays": 68770,
+  "n_subjects": 54964,
+  "n_admissions": 68770,
+  "target_positive": 8961,
+  "target_base_rate": 0.13030391158935584,
+  "age": {
+    "median": 67.0,
+    "p25": 55.0,
+    "p75": 78.0
+  },
+  "gender_pct": {
+    "M": 56.47,
+    "F": 43.53
+  },
+  "first_careunit_pct": {
+    "Medical Intensive Care Unit (MICU)": 20.86,
+    "Cardiac Vascular Intensive Care Unit (CVICU)": 17.64,
+    "Medical/Surgical Intensive Care Unit (MICU/SICU)": 15.66,
+    "Surgical Intensive Care Unit (SICU)": 13.51,
+    "Coronary Care Unit (CCU)": 11.51,
+    "Trauma SICU (TSICU)": 10.48,
+    "Neuro Intermediate": 6.52,
+    "Neuro Surgical Intensive Care Unit (Neuro SICU)": 2.05,
+    "Neuro Stepdown": 1.45,
+    "Surgery/Vascular/Intermediate": 0.17,
+    "PACU": 0.09,
+    "Intensive Care Unit (ICU)": 0.04,
+    "Medicine": 0.02,
+    "Surgery/Trauma": 0.01,
+    "Medicine/Cardiology Intermediate": 0.0,
+    "Med/Surg": 0.0,
+    "Neurology": 0.0
+  },
+  "los_icu_days": {
+    "median": 2.347511574074074,
+    "p25": 1.5094155092592594,
+    "p75": 4.376597222222222
+  }
+}
