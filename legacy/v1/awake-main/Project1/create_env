@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+
+# Install venv
+sudo apt-get install python3.10-venv -y
+
+# Install Graphviz
+sudo apt-get install graphviz -y
+
+# Create Python environment
+python3 -m venv awaKE_1
+
+# Activate the environment
+source awaKE_1/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+
+# Create Kernel
+python3 -m ipykernel install --user --name awaKE_1 --display-name "awaKE_1"
+
+# Open Jupyter
+jupyter notebook

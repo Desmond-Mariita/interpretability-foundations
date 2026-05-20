@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+
+# Create Python environment
+sudo rm -fr awaKE_3
+python3 -m venv awaKE_3
+
+# Activate the environment
+source awaKE_3/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+
+# Add Kernel
+
+python3 -m ipykernel install --user --name awaKE_3 --display-name "awaKE_3"
+
+# Run jupyter
+
+jupyter notebook
+

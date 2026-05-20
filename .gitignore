@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.python-version
+
+# Build
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Notebook artefacts (HTML is committed; raw outputs are stripped)
+.ipynb_checkpoints/
+
+# Per-project data + outputs (gitignored everywhere)
+data/
+outputs/
+mlruns/
+models/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets and local config
+.env
+.envrc
+*.local
+
+# Private artefacts (kept local-only per spec §11)
+report.pdf
+instructions.docx
+thesis.pdf

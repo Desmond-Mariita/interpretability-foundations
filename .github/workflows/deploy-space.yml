@@ -1,0 +1,46 @@
+name: deploy-space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/hatefulmemes-space/**"
+      - "src/awake/viz/**"
+      - "src/awake/eval/plausibility.py"
+      - ".github/workflows/deploy-space.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.repository == 'Desmond-Mariita/interpretability-foundations'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Vendor awake.viz + awake.eval.plausibility into the Space subtree
+        run: |
+          mkdir -p apps/hatefulmemes-space/_vendored/awake/eval apps/hatefulmemes-space/_vendored/awake/viz
+          cp -r src/awake/viz/.       apps/hatefulmemes-space/_vendored/awake/viz/
+          if [ -f src/awake/eval/plausibility.py ]; then
+            cp src/awake/eval/plausibility.py apps/hatefulmemes-space/_vendored/awake/eval/
+          fi
+          touch apps/hatefulmemes-space/_vendored/awake/__init__.py
+          touch apps/hatefulmemes-space/_vendored/awake/eval/__init__.py
+
+      - name: Push subtree to HuggingFace Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USER: ${{ secrets.HF_USER }}
+          HF_SPACE: ${{ secrets.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::warning::HF_TOKEN is unset; skipping deploy. Configure repository secrets to enable."
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add apps/hatefulmemes-space/_vendored
+          git commit -m "vendor awake helpers for HF Space deploy" || true
+          git subtree split --prefix apps/hatefulmemes-space -b _hf-space-deploy
+          git push --force "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_USER}/${HF_SPACE}" _hf-space-deploy:main

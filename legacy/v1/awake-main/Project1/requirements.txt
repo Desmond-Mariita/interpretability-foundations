@@ -1,0 +1,8 @@
+pandas==2.0.1
+seaborn==0.12.2
+scikit-learn==1.2.2
+imbalanced-learn==0.10.1
+dtreeviz==2.2.1
+ipython==8.13.2
+ipykernel==6.23.1
+jupyter==1.0.0
