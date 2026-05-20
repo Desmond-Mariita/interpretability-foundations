@@ -1,0 +1,15 @@
+# gitleaks config — extends the default ruleset with project-specific
+# allowlists. The real secret patterns (PHI, HF / OpenAI / Anthropic tokens,
+# AWS keys) are enumerated in docs/decisions/001-mimic-code-only.md and
+# remain enforced by the default rules.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project allowlist — lockfile hashes are not secrets"
+paths = [
+  "uv.lock",
+  ".venv/.*",
+  "legacy/.*",                  # 2023 coursework, frozen
+]

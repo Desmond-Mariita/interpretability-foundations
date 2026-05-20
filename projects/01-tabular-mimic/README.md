@@ -31,6 +31,17 @@ Train/test split is **grouped on `subject_id`** to prevent patient leakage: 15% 
 
 See [`REPORT.md`](REPORT.md) for the full methodology and discussion, [`cohort_stats.json`](cohort_stats.json) for the cohort manifest, and [`metrics.json`](metrics.json) for the per-fold and per-model numbers.
 
+## Per-model explanations
+
+Each model family is read with the explanation form that fits it natively — see [`notebooks/01-model-explanations.html`](notebooks/01-model-explanations.html) (pre-rendered, opens in any browser):
+
+- **L2 Logistic** — standardised coefficient bar chart.
+- **Decision Tree** — full depth-5 `plot_tree` + the decision path for one held-out positive.
+- **EBM** — shape functions (Δ log-odds vs. feature value) for the top six terms.
+- **LightGBM** — gain importance for the global view + a TreeSHAP waterfall for the same held-out example.
+
+`.ipynb` source is in [`notebooks/01-model-explanations.ipynb`](notebooks/01-model-explanations.ipynb); re-run with `just notebook`.
+
 ## Reproduce
 
 Requires PhysioNet MIMIC-IV credentials and the data at `~/Physionet/mimic-iv-3.1/` (override via `MIMIC_PATH`).

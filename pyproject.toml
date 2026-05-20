@@ -27,6 +27,9 @@ dev = [
   "pytest-cov>=5.0",
   "pre-commit>=3.7",
   "nbstripout>=0.7",
+  "jupyter>=1.0",
+  "jupytext>=1.16",
+  "nbconvert>=7.16",
 ]
 
 [build-system]
@@ -40,7 +43,7 @@ packages = ["src/awake"]
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
-extend-exclude = ["legacy", "**/_vendored"]
+extend-exclude = ["legacy", "**/_vendored", "**/notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D"]
