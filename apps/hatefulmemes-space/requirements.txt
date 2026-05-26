@@ -1,3 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 gradio==4.44.0
+torch==2.2.2+cpu
+transformers>=4.44
+lightgbm>=4.3
+huggingface_hub>=0.24
 numpy>=1.26
 pillow>=10.0
