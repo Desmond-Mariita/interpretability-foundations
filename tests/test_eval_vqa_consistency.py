@@ -29,6 +29,17 @@ def test_extract_choice_strict_first_line_letter():
     assert extract_choice("answer : C", choices) == (2, "strict")
     # strict wins even if other choice text also appears
     assert extract_choice("Answer: A\nthe blue truck is wrong", choices) == (0, "strict")
+    # separator after 'Answer' is optional: bare and dashed forms also parse
+    assert extract_choice("Answer B", choices) == (1, "strict")
+    assert extract_choice("Answer-C", choices) == (2, "strict")
+
+
+@pytest.mark.unit
+def test_extract_choice_concatenated_word_does_not_strict_parse():
+    choices = ["red car", "blue truck", "green bus", "yellow van"]
+    # 'answerbus' is a concatenated word -> must NOT strict-parse as 'B'; and no
+    # choice text is a substring of the normalized output -> none
+    assert extract_choice("answerbus is best", choices) == (None, "none")
 
 
 @pytest.mark.unit
@@ -139,6 +150,12 @@ def test_pipeline_divergence_overall_and_contingency():
 def test_pipeline_divergence_none_counts_as_disagree():
     out = pipeline_divergence([None, 0], [0, 0], [0, 0])
     assert out["overall"] == 0.5  # item0 None vs 0 disagrees; item1 agrees
+
+
+@pytest.mark.unit
+def test_pipeline_divergence_length_mismatch_raises():
+    with pytest.raises(ValueError):
+        pipeline_divergence([0, 1], [0], [0, 1])
 
 
 @pytest.mark.unit

@@ -11,7 +11,7 @@ import re
 
 _PUNCT = re.compile(r"[^\w\s]")
 _WS = re.compile(r"\s+")
-_STRICT = re.compile(r"^\s*answer\s*[:\-]?\s*([a-d])\b", re.IGNORECASE | re.MULTILINE)
+_STRICT = re.compile(r"^\s*answer\b\s*[:\-]?\s*([a-d])\b", re.IGNORECASE | re.MULTILINE)
 
 
 def normalize_text(s: str) -> str:
@@ -34,7 +34,9 @@ def extract_choice(model_output: str, choices: list[str]) -> tuple[int | None, s
     """Parse the chosen choice index from a model's free-text output (strict-then-text).
 
     Primary (strict): the first ``Answer: <A-D>`` match, mapped to a 0-based index;
-    used only if that index is valid for ``choices``. Fallback (text): exactly one
+    used only if that index is valid for ``choices``. The separator after ``Answer``
+    is optional, so ``Answer: B``, ``Answer B``, and ``Answer-B`` all parse, but a
+    concatenated word like ``answerbus`` does not. Fallback (text): exactly one
     choice's normalized text is a substring of the normalized output; ambiguous or
     zero matches yield ``None``.
 
@@ -52,7 +54,7 @@ def extract_choice(model_output: str, choices: list[str]) -> tuple[int | None, s
         if idx < len(choices):
             return idx, "strict"
     norm_out = normalize_text(model_output)
-    hits = [i for i, c in enumerate(choices) if normalize_text(c) and normalize_text(c) in norm_out]
+    hits = [i for i, c in enumerate(choices) if (nc := normalize_text(c)) and nc in norm_out]
     if len(hits) == 1:
         return hits[0], "text"
     return None, "none"
@@ -124,7 +126,7 @@ def accuracy(pred: list[int | None], gold: list[int]) -> float:
         raise ValueError("pred and gold must have equal length")
     if not pred:
         return 0.0
-    return sum(p is not None and p == g for p, g in zip(pred, gold, strict=False)) / len(pred)
+    return sum(p is not None and p == g for p, g in zip(pred, gold, strict=True)) / len(pred)
 
 
 def consistency_rate(
@@ -151,7 +153,7 @@ def consistency_rate(
     """
     if len(original) != len(ablated):
         raise ValueError("original and ablated must have equal length")
-    pairs = list(zip(original, ablated, strict=False))
+    pairs = list(zip(original, ablated, strict=True))
     if paired_only:
         pairs = [(o, a) for o, a in pairs if o is not None and a is not None]
     if not pairs:
@@ -193,7 +195,7 @@ def pipeline_divergence(
         "both_wrong": {"agree": 0, "disagree": 0},
     }
     disagree = 0
-    for ai, bi, gi in zip(a, b, gold, strict=False):
+    for ai, bi, gi in zip(a, b, gold, strict=True):
         agree = ai is not None and bi is not None and ai == bi
         if not agree:
             disagree += 1
