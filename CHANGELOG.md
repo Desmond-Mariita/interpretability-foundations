@@ -8,6 +8,11 @@ All notable changes to this repository are documented here. Format follows
 
 ### Added
 
+#### Project 4 (`04-vqa-aokvqa`)
+- Project 4 (`04-vqa-aokvqa`): caption-then-LLM vs direct-VLM A-OKVQA pipelines with a
+  paired-baseline vision-ablation probe (consistency gain Delta), inter-pipeline divergence,
+  and the pure `awake.eval.vqa_consistency` metric core.
+
 #### Project 3 — `03-multimodal-hatefulmemes`
 - **Question.** When a fused image+text classifier calls a meme hateful or benign, how
   much of the signal came from the image vs. the text?  Benchmarked on Meta Hateful Memes

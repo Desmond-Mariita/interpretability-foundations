@@ -41,6 +41,7 @@ dev = [
   "nbconvert>=7.16",
 ]
 explain-shap = ["shap>=0.46", "numba>=0.59", "llvmlite>=0.42"]
+vqa = ["qwen-vl-utils>=0.0.10", "accelerate>=0.30", "torchvision>=0.17", "transformers>=5.9"]
 
 [build-system]
 requires = ["hatchling"]
