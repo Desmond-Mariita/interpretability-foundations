@@ -24,15 +24,15 @@ from awake.eval.plausibility import (
 REAL_EXPLAINERS = ["grad_x_input", "integrated_gradients", "lime"]
 
 
-def expected_calibration_error(conf, preds, labels, n_bins=10) -> float:
+def expected_calibration_error(conf, _preds, labels, n_bins=10) -> float:
     """Standard ECE over equal-width confidence bins.
 
-    ``conf`` is the predicted probability for the positive class; accuracy is
-    the empirical positive rate in each bin so that a perfectly calibrated model
-    (conf == P(y=1)) achieves ECE == 0.  ``preds`` is accepted for API
-    consistency but not used in the bin computation.
+    ``conf`` is the predicted probability for the positive class (``probs[:,
+    1]`` for binary tasks); accuracy is the empirical positive rate in each bin
+    so that a perfectly calibrated model (conf == P(y=1)) achieves ECE == 0.
+    ``_preds`` is accepted for API consistency but is not used.
     """
-    conf, _preds, labels = map(np.asarray, (conf, preds, labels))
+    conf, labels = np.asarray(conf), np.asarray(labels)
     edges = np.linspace(0, 1, n_bins + 1)
     ece = 0.0
     for lo, hi in pairwise(edges):
@@ -115,7 +115,7 @@ def main() -> None:
     diagnostics = {
         "accuracy": float((preds == labels).mean()),
         "macro_f1": float(f1_score(labels, preds, average="macro")),
-        "ece": expected_calibration_error(probs.max(1), preds, labels),
+        "ece": expected_calibration_error(probs[:, 1], preds, labels),
         "class_balance": float(labels.mean()),
         "n": len(sub),
     }
