@@ -1,5 +1,5 @@
-import numpy as np
 import pytest
+
 from awake.eval.modality_shapley import shapley_2player
 
 
