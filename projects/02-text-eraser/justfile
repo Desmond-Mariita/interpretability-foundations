@@ -1,0 +1,36 @@
+set shell := ["bash", "-uc"]
+set dotenv-load := true
+
+project_root := justfile_directory()
+repo_root := justfile_directory() + "/../.."
+default_data_path := env_var_or_default("DATA_PATH", env_var("HOME") + "/.cache/eraser/movies")
+
+default:
+    @just --list
+
+data:
+    cd "{{project_root}}" && uv run python scripts/00_fetch_data.py --data-path "{{default_data_path}}"
+
+prepare:
+    cd "{{project_root}}" && uv run python scripts/01_prepare.py
+
+train *FLAGS:
+    cd "{{project_root}}" && uv run python scripts/10_train.py {{FLAGS}}
+
+explain *FLAGS:
+    cd "{{project_root}}" && uv run python scripts/20_explain.py {{FLAGS}}
+
+eval *FLAGS:
+    cd "{{project_root}}" && uv run python scripts/30_eval.py {{FLAGS}}
+
+pipeline: data prepare
+
+notebook NAME="01-explainer-comparison":
+    cd "{{project_root}}/notebooks" && \
+        P2_PROJECT_ROOT="{{project_root}}" uv run jupytext --to ipynb {{NAME}}.py && \
+        P2_PROJECT_ROOT="{{project_root}}" uv run jupyter nbconvert --to notebook --execute --inplace {{NAME}}.ipynb && \
+        uv run jupyter nbconvert --to html {{NAME}}.ipynb && \
+        uv run nbstripout {{NAME}}.ipynb
+
+test:
+    cd "{{repo_root}}" && uv run pytest projects/02-text-eraser/tests -m "unit or smoke" --no-cov

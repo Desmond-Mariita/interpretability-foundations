@@ -1,0 +1,4 @@
+url: "https://www.eraserbenchmark.com/zipped/movies.tar.gz"
+sha256: "66e18d4e6c9df9e9f5544572b0bfe92a39673f74ecbfc3859b46cedb2f5b2dee"
+max_seq_len: 512
+coverage_threshold: 0.8

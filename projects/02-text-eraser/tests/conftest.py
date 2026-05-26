@@ -1,6 +1,6 @@
-"""Make the project's ``scripts/`` directory importable in tests.
+"""Make the project's scripts/ importable in tests.
 
-Sibling projects (e.g. ``projects/02-text-eraser``) also expose bare-named
+Sibling projects (e.g. ``projects/01-tabular-mimic``) also expose bare-named
 script modules such as ``_paths`` and ``10_train``. In a combined pytest
 session those names collide in ``sys.modules``. The autouse fixture below
 isolates this project's scripts on every test: it puts this ``scripts/`` dir
