@@ -3,9 +3,11 @@
 import pytest
 
 from awake.eval.vqa_consistency import (
+    accuracy,
     explanation_leaks_answer,
     extract_choice,
     normalize_text,
+    parse_rate,
     rationale_leaks_answer,
 )
 
@@ -66,3 +68,23 @@ def test_rationale_leaks_answer_any_rationale_matches():
 def test_leakage_does_not_match_bare_letter():
     # a lone letter token must NOT cause a false leak (the choice TEXT is what matters)
     assert explanation_leaks_answer("the answer is A", "red car") is False
+
+
+@pytest.mark.unit
+def test_parse_rate_counts_non_none_fraction():
+    assert parse_rate([0, 1, None, 2]) == 0.75
+    assert parse_rate([None, None]) == 0.0
+    assert parse_rate([]) == 0.0
+
+
+@pytest.mark.unit
+def test_accuracy_none_counts_as_wrong():
+    assert accuracy([0, 1, 2, 3], [0, 1, 2, 3]) == 1.0
+    assert accuracy([0, None, 2, 1], [0, 1, 2, 3]) == 0.5  # None and 1!=3 both wrong
+    assert accuracy([], []) == 0.0
+
+
+@pytest.mark.unit
+def test_accuracy_length_mismatch_raises():
+    with pytest.raises(ValueError):
+        accuracy([0, 1], [0])

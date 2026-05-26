@@ -91,3 +91,37 @@ def rationale_leaks_answer(rationales: list[str], gold_choice_text: str) -> bool
         ``True`` if any rationale leaks the gold choice text.
     """
     return any(explanation_leaks_answer(r, gold_choice_text) for r in rationales)
+
+
+def parse_rate(parsed: list[int | None]) -> float:
+    """Fraction of items that parsed to a choice index (not ``None``).
+
+    Args:
+        parsed: Per-item parsed indices (``None`` = unparseable).
+
+    Returns:
+        Share in [0, 1]; ``0.0`` for an empty list.
+    """
+    if not parsed:
+        return 0.0
+    return sum(p is not None for p in parsed) / len(parsed)
+
+
+def accuracy(pred: list[int | None], gold: list[int]) -> float:
+    """Top-1 accuracy where unparseable predictions count as wrong.
+
+    Args:
+        pred: Per-item predicted indices (``None`` = unparseable = wrong).
+        gold: Per-item gold indices.
+
+    Returns:
+        Share correct in [0, 1] (denominator = all items); ``0.0`` for empty.
+
+    Raises:
+        ValueError: If ``pred`` and ``gold`` differ in length.
+    """
+    if len(pred) != len(gold):
+        raise ValueError("pred and gold must have equal length")
+    if not pred:
+        return 0.0
+    return sum(p is not None and p == g for p, g in zip(pred, gold)) / len(pred)
