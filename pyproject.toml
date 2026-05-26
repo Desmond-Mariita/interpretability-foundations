@@ -24,6 +24,8 @@ dependencies = [
   "lime>=0.2.0.1",
   "sentencepiece>=0.2",
   "protobuf>=4.0",
+  "pillow>=10.0",
+  "huggingface-hub>=0.24",
 ]
 
 [project.optional-dependencies]
@@ -81,14 +83,14 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "projects"]
+testpaths = ["tests", "projects", "apps"]
 python_files = ["test_*.py"]
 markers = [
   "unit: fast pure-function tests with no external resources",
   "smoke: end-to-end plumbing tests on tiny synthetic data",
   "slow: tests that exceed the 8-minute CI budget; excluded from CI",
 ]
-addopts = "-ra --strict-markers --cov=awake --cov-report=term-missing --cov-fail-under=90"
+addopts = "-ra --strict-markers --import-mode=importlib --cov=awake --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.run]
 branch = true

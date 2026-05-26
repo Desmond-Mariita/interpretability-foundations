@@ -1,0 +1,2 @@
+clip_model_id: "openai/clip-vit-large-patch14"
+embedding_subdir: "embeddings/l14"
