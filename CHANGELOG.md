@@ -6,6 +6,37 @@ All notable changes to this repository are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+#### Project 2 — `02-text-eraser`
+- **Question.** Which of LIME, Integrated Gradients, Gradient×Input, and SHAP
+  PartitionExplainer is most faithful to a fine-tuned DeBERTa-v3-base sentiment
+  classifier, and do the faithful explainers also agree with human rationales
+  (plausibility)?  Benchmarked on the ERASER Movies corpus.
+- **Pipeline.** `scripts/00_fetch_data.py` (canonical tarball download + sha256
+  verification) → `01_prepare.py` (frozen 512-subword visible sequence + truncation
+  coverage + comparison-doc dropping) → `10_train.py` (DeBERTa-v3-base fine-tune) →
+  `20_explain.py` (attribution cache with checkpoint-hash invalidation) →
+  `30_eval.py` (metrics.json + hero scatter).
+- **Metric suite.** ERASER-exact comprehensiveness + sufficiency at dataset rationale
+  budget `k_d`; AOPC (bins 0–50%); token F1 + AUPRC against human rationale masks;
+  paired bootstrap 95% CIs (2 000 resamples); Bonferroni-corrected pairwise tests.
+  Mask-replacement erasure (preserve positions, replace with `[MASK]`) documented as a
+  deliberate deviation from ERASER literal removal.
+- **Explainers.** LIME, Integrated Gradients, Gradient×Input (replaces attention rollout;
+  DeBERTa disentangled attention breaks standard rollout), SHAP PartitionExplainer
+  (optional extra `[explain-shap]`), random baseline floor.
+- **Results.** Pending the reproduced run; see `projects/02-text-eraser/metrics.json`.
+  No numbers fabricated.
+- **Documentation.** `projects/02-text-eraser/REPORT.md` (9-section methodology +
+  limitations + references); `projects/02-text-eraser/README.md` (question / method /
+  reproduce / limitations); `notebooks/01-explainer-comparison.py` (jupytext
+  py:percent source — faithfulness table, hero scatter, token heatmaps).
+- **ADR.** `docs/decisions/002-eraser-data-and-truncation.md` — four decisions:
+  code-only ERASER download, frozen visible-sequence truncation contract,
+  mask-replacement erasure, `shap` optional extra with `numba>=0.59`.
+- Repo stays v0.x, unpromoted per §15.
+
 ## [0.1.0] — 2026-05-20
 
 First milestone release. Project 1 complete end-to-end on the real MIMIC-IV
