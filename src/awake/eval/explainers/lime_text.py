@@ -18,9 +18,7 @@ class LimeExplainer:
 
     name = "lime"
 
-    def __init__(
-        self, model, tokenizer, device: str = "cpu", num_samples: int = 1000
-    ) -> None:
+    def __init__(self, model, tokenizer, device: str = "cpu", num_samples: int = 1000) -> None:
         """Store model/tokenizer, device, and the LIME sample budget."""
         self.model = model.to(device).eval()
         self.tokenizer = tokenizer

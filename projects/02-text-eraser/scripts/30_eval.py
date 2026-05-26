@@ -61,10 +61,24 @@ def _faithfulness_for(adapter, sub, attr_df, cfg) -> dict[str, np.ndarray]:
         visible = np.array([w is not None for w in row["word_ids"]], dtype=bool)
         probs = adapter.predict_proba(ids[None, :])[0]
         pred = int(probs.argmax())
-        comp.append(comprehensiveness(adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"]))
-        suff.append(sufficiency(adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"]))
-        aopc.append(aopc_comprehensiveness(adapter.predict_proba, ids, scores, visible, pred, mask_id, tuple(cfg["aopc_bins"])))
-    return {"comprehensiveness": np.array(comp), "sufficiency": np.array(suff), "aopc": np.array(aopc)}
+        comp.append(
+            comprehensiveness(
+                adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"]
+            )
+        )
+        suff.append(
+            sufficiency(adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"])
+        )
+        aopc.append(
+            aopc_comprehensiveness(
+                adapter.predict_proba, ids, scores, visible, pred, mask_id, tuple(cfg["aopc_bins"])
+            )
+        )
+    return {
+        "comprehensiveness": np.array(comp),
+        "sufficiency": np.array(suff),
+        "aopc": np.array(aopc),
+    }
 
 
 def _plausibility_for(sub, attr_df, cfg, word_level: bool) -> dict[str, np.ndarray]:
@@ -145,7 +159,8 @@ def main() -> None:
                         cfg["bootstrap"]["n_resamples"],
                         cfg["bootstrap"]["alpha"],
                         cfg["bootstrap"]["seed"],
-                    ), strict=False,
+                    ),
+                    strict=False,
                 )
             )
             for m, v in metrics.items()

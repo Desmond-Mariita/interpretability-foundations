@@ -24,7 +24,7 @@ def test_aggregate_takes_max_abs_over_word_subwords():
 
 @pytest.mark.unit
 def test_clip_gold_mask_to_window():
-    gold = np.array([0, 1, 1, 0, 1])      # 5 words in full doc
+    gold = np.array([0, 1, 1, 0, 1])  # 5 words in full doc
     out = clip_gold_mask_to_window(gold, n_visible_words=3)
     assert out.tolist() == [0, 1, 1]
 

@@ -86,9 +86,7 @@ def main() -> None:
                 rec = build_record(ex, doc_text)
                 vis = freeze_visible(rec["text"], tok, cfg_d["max_seq_len"])
                 rec.update(vis)
-                rec["truncation_coverage"] = truncation_coverage(
-                    vis["word_ids"], rec["gold_mask"]
-                )
+                rec["truncation_coverage"] = truncation_coverage(vis["word_ids"], rec["gold_mask"])
                 rows.append(rec)
         pd.DataFrame(rows).to_parquet(PREPARED / f"{split}.parquet")
         print(f"{split}: {len(rows)} examples")

@@ -29,9 +29,7 @@ def bootstrap_ci(
     return lo, float(values.mean()), hi
 
 
-def paired_diff_test(
-    a: np.ndarray, b: np.ndarray, n_resamples: int = 2000, seed: int = 0
-) -> dict:
+def paired_diff_test(a: np.ndarray, b: np.ndarray, n_resamples: int = 2000, seed: int = 0) -> dict:
     """Paired bootstrap test of ``mean(a) - mean(b)`` over shared examples.
 
     Args:
@@ -54,8 +52,6 @@ def paired_diff_test(
     rng = np.random.default_rng(seed + 1)
     n = diff.size
     centered = diff - diff.mean()
-    resampled = np.array(
-        [centered[rng.integers(0, n, n)].mean() for _ in range(n_resamples)]
-    )
+    resampled = np.array([centered[rng.integers(0, n, n)].mean() for _ in range(n_resamples)])
     p = float((np.abs(resampled) >= abs(diff.mean())).mean())
     return {"mean_diff": mean_diff, "ci_low": lo, "ci_high": hi, "p_value": p}
