@@ -9,6 +9,7 @@ from awake.eval.vqa_consistency import (
     extract_choice,
     normalize_text,
     parse_rate,
+    pipeline_divergence,
     rationale_leaks_answer,
 )
 
@@ -113,3 +114,28 @@ def test_consistency_rate_empty_and_mismatch():
     assert consistency_rate([0], [0], paired_only=True) == 1.0
     with pytest.raises(ValueError):
         consistency_rate([0, 1], [0])
+
+
+@pytest.mark.unit
+def test_pipeline_divergence_overall_and_contingency():
+    #            gold:  0    1    2    3
+    a = [0, 1, 2, 0]  # correct, correct, correct, wrong
+    b = [0, 2, 2, 1]  # correct, wrong,   correct, wrong
+    gold = [0, 1, 2, 3]
+    out = pipeline_divergence(a, b, gold)
+    # disagreements: item1 (1 vs 2), item3 (0 vs 1) -> 2/4
+    assert out["overall"] == 0.5
+    c = out["contingency"]
+    # items 0 and 2: both correct + agree -> both_correct accumulates agree: 2
+    assert c["both_correct"] == {"agree": 2, "disagree": 0}
+    # item1: a correct, b wrong, disagree
+    assert c["a_correct_b_wrong"] == {"agree": 0, "disagree": 1}
+    # item3: both wrong, disagree
+    assert c["both_wrong"] == {"agree": 0, "disagree": 1}
+    assert c["a_wrong_b_correct"] == {"agree": 0, "disagree": 0}
+
+
+@pytest.mark.unit
+def test_pipeline_divergence_none_counts_as_disagree():
+    out = pipeline_divergence([None, 0], [0, 0], [0, 0])
+    assert out["overall"] == 0.5  # item0 None vs 0 disagrees; item1 agrees

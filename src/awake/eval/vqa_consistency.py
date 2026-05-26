@@ -157,3 +157,56 @@ def consistency_rate(
     if not pairs:
         return 0.0
     return sum(o is not None and a is not None and o == a for o, a in pairs) / len(pairs)
+
+
+def pipeline_divergence(
+    a: list[int | None],
+    b: list[int | None],
+    gold: list[int],
+) -> dict:
+    """Inter-pipeline divergence plus a correctness-conditioned 2x2 contingency.
+
+    Two pipelines "agree" on an item iff both parse and predict the same index;
+    ``None`` on either side counts as a disagreement. Each item is also bucketed by
+    (a-correct, b-correct) into one of four cells, and within each cell counted as
+    agree/disagree.
+
+    Args:
+        a: Pipeline A per-item parsed indices.
+        b: Pipeline B per-item parsed indices.
+        gold: Per-item gold indices.
+
+    Returns:
+        ``{"overall": disagree_rate, "contingency": {cell: {"agree": int,
+        "disagree": int}}}`` with cells ``both_correct``, ``a_correct_b_wrong``,
+        ``a_wrong_b_correct``, ``both_wrong``.
+
+    Raises:
+        ValueError: If the three lists differ in length.
+    """
+    if not (len(a) == len(b) == len(gold)):
+        raise ValueError("a, b, gold must have equal length")
+    cells = {
+        "both_correct": {"agree": 0, "disagree": 0},
+        "a_correct_b_wrong": {"agree": 0, "disagree": 0},
+        "a_wrong_b_correct": {"agree": 0, "disagree": 0},
+        "both_wrong": {"agree": 0, "disagree": 0},
+    }
+    disagree = 0
+    for ai, bi, gi in zip(a, b, gold):
+        agree = ai is not None and bi is not None and ai == bi
+        if not agree:
+            disagree += 1
+        a_ok = ai is not None and ai == gi
+        b_ok = bi is not None and bi == gi
+        if a_ok and b_ok:
+            cell = "both_correct"
+        elif a_ok and not b_ok:
+            cell = "a_correct_b_wrong"
+        elif b_ok and not a_ok:
+            cell = "a_wrong_b_correct"
+        else:
+            cell = "both_wrong"
+        cells[cell]["agree" if agree else "disagree"] += 1
+    overall = disagree / len(a) if a else 0.0
+    return {"overall": overall, "contingency": cells}
