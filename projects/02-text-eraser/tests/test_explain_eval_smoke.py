@@ -23,3 +23,16 @@ def test_explain_writes_cache_with_model_hash(tmp_path):
     meta = pq.read_table(path).schema.metadata
     assert meta[b"model_sha256"] == b"abc123"
     assert meta[b"explainer_name"] == b"grad_x_input"
+
+
+eval_mod = importlib.import_module("30_eval")
+
+
+@pytest.mark.unit
+def test_expected_calibration_error_zero_for_perfect():
+    # confidences equal accuracy in each bin -> ECE small
+    probs = np.array([0.9, 0.9, 0.1, 0.1])
+    preds = np.array([1, 1, 0, 0])
+    labels = np.array([1, 1, 0, 0])
+    ece = eval_mod.expected_calibration_error(probs, preds, labels, n_bins=5)
+    assert ece == pytest.approx(0.1, abs=0.05)
