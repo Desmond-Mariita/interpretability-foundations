@@ -1,0 +1,7 @@
+model_name: "microsoft/deberta-v3-base"
+num_labels: 2
+lr: 2.0e-5
+epochs: 3
+batch_size: 8
+fp16: true
+seed: 42

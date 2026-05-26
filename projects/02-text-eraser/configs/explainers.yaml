@@ -1,0 +1,13 @@
+subsample_n: 200
+k_d: 0.20            # dataset rationale budget (fraction); recomputed in Task 11
+aopc_bins: [0.0, 0.01, 0.05, 0.10, 0.20, 0.50]
+bootstrap:
+  n_resamples: 2000
+  alpha: 0.05
+  seed: 0
+lime:
+  num_samples: 1000
+shap:
+  max_evals: 500
+ig:
+  n_steps: 50

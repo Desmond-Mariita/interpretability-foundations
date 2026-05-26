@@ -1,0 +1,4 @@
+url: "https://www.eraserbenchmark.com/zipped/movies.tar.gz"
+sha256: "PLACEHOLDER_FILL_FROM_DOWNLOAD"   # set in Task 10 after first verified download
+max_seq_len: 512
+coverage_threshold: 0.8
