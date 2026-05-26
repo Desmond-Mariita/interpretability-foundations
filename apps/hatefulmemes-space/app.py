@@ -292,5 +292,6 @@ def build_interface():
 
 
 if __name__ == "__main__":
-    pathlib.Path("outputs").mkdir(exist_ok=True)
-    build_interface().launch()
+    # 0.0.0.0:7860 so the HF Space proxy can reach it; show_api=False avoids a
+    # gradio 4.44 gradio_client schema bug (get_api_info on dict-valued Labels).
+    build_interface().launch(server_name="0.0.0.0", server_port=7860, show_api=False)
