@@ -8,6 +8,44 @@ All notable changes to this repository are documented here. Format follows
 
 ### Added
 
+#### Project 3 — `03-multimodal-hatefulmemes`
+- **Question.** When a fused image+text classifier calls a meme hateful or benign, how
+  much of the signal came from the image vs. the text?  Benchmarked on Meta Hateful Memes
+  phase-1 (8,499 train / 500 dev balanced / 999 test unlabelled).
+- **Pipeline.** `scripts/00_data.py` (verify/extract gated dataset; never downloads) →
+  `01_encode.py` (frozen CLIP-ViT-L/14 → `outputs/embeddings/clip_l14/`) →
+  `10_train.py` (LightGBM fused + image-only + text-only heads; train-CV hyperparam
+  selection; dev = final eval only) → `15_background.py` (seeded empirical train
+  background, N=200) → `11_eval.py` (AUROC/AUPRC/acc + bootstrap CIs → `metrics.json`)
+  → `20_attribute.py` (2-player interventional modality Shapley on dev → `metrics.json`
+  + `assets/modality_attribution.png`).  `just export-space-artifacts` runs the B/32
+  variant and uploads the head to HF Model Hub.
+- **Metric suite.** AUROC / AUPRC / accuracy@0.5 on dev (500, balanced); bootstrap 95%
+  CIs (2,000 resamples); paired bootstrap CIs on fused−unimodal AUROC differences.
+  Modality attribution: exact 2-player interventional Shapley on the LightGBM raw margin;
+  empirical train background (primary) + mean-baseline and balanced-background ablations;
+  signed image share `s = φ_image / (|φ_image| + |φ_text| + ε)`.
+- **Space.** HuggingFace Gradio Space (`apps/hatefulmemes-space/`) with CLIP-ViT-B/32 +
+  LightGBM B/32 head (loaded from HF Model Hub) + generic non-HM background
+  (`generic_background.npz`).  Licence-safe: no HM-derived artifact committed or hosted.
+  Space attributions are illustrative; not numerically comparable to the L/14 headline.
+- **Licence governance.** Meta HM Dataset Agreement §6.1/6.2: dataset and CLIP embeddings
+  never committed; §2: trained head may be published.  No raw HM images or meme text in
+  any committed artifact.  See ADR 003.
+- **Results.** _(populated from the reproduced run; see `projects/03-multimodal-hatefulmemes/metrics.json`)_
+- **Documentation.** `projects/03-multimodal-hatefulmemes/REPORT.md` (8-section
+  methodology + metric definitions + limitations + references);
+  `projects/03-multimodal-hatefulmemes/README.md` (question / method / reproduce /
+  limitations); `notebooks/01-modality-attribution.py` (jupytext py:percent source —
+  metric table, attribution figure, synthetic qualitative example).
+- **ADR.** `docs/decisions/003-hateful-memes-licence-and-modality-shapley.md` — four
+  decisions: HM licence (dataset/embeddings gated, head publishable), 2-player modality
+  Shapley over per-dimension SHAP (parsimony primary; dimensionality reinforces;
+  additivity-pathologies framing dropped), interventional empirical-train background
+  (off-manifold caveat disclosed; mean-baseline and balanced-background ablations), and
+  logit value function (probability for display only).
+- Repo stays v0.x, unpromoted per §15.
+
 #### Project 2 — `02-text-eraser`
 - **Question.** Which of LIME, Integrated Gradients, Gradient×Input, and SHAP
   PartitionExplainer is most faithful to a fine-tuned sentiment classifier, and do the
