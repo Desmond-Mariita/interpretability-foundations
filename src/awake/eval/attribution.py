@@ -19,6 +19,8 @@ class TokenAttribution:
         visible_mask: True for real tokens, False for special/pad tokens.
         predicted_class: The class index the metrics are scored against.
         class_scores: Full predicted probability vector for the input.
+        word_level: True if scores are already whitespace-word level (LIME);
+            False for subword-level.
     """
 
     tokens: list[str]
@@ -27,6 +29,7 @@ class TokenAttribution:
     visible_mask: np.ndarray
     predicted_class: int
     class_scores: np.ndarray
+    word_level: bool = False
 
     def __post_init__(self) -> None:
         """Validate that all per-token sequences have the same length."""

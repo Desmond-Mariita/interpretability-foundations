@@ -40,3 +40,17 @@ def test_integrated_gradients_runs_on_stub():
     attr = ig.attribute({"text": "w5 w6 w7", "predicted_class": None})
     assert attr.n_tokens > 0
     assert np.all(np.isfinite(attr.scores))
+
+
+# append to tests/test_eval_explainers.py
+@pytest.mark.smoke
+def test_lime_runs_on_stub():
+    import importlib, sys, pathlib
+    sys.path.insert(0, str(pathlib.Path("projects/02-text-eraser/scripts").resolve()))
+    stub = importlib.import_module("_stub_model")
+    from awake.eval.explainers.lime_text import LimeExplainer
+    model, tok = stub.build_stub_model_and_tokenizer()
+    lime = LimeExplainer(model, tok, device="cpu", num_samples=20)
+    attr = lime.attribute({"text": "w5 w6 w7", "predicted_class": None})
+    assert attr.n_tokens == 3            # whitespace-level: one score per word
+    assert attr.word_level is True
