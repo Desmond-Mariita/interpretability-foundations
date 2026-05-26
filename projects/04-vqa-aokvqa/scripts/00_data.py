@@ -5,9 +5,9 @@ Pure ``prepare_rows`` is smoke-tested; ``main`` (download + image decode) is slo
 
 from __future__ import annotations
 
-from awake.eval.vqa_consistency import rationale_leaks_answer
-
 from _paths import IMAGES, PREPARED, ensure_dirs, load_config
+
+from awake.eval.vqa_consistency import rationale_leaks_answer
 
 
 def prepare_rows(raw: list[dict]) -> list[dict]:

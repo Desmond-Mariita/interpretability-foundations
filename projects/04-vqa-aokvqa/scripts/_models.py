@@ -100,6 +100,6 @@ def model_revisions(model_ids: dict[str, str]) -> dict[str, str]:
             from huggingface_hub import HfApi
 
             revisions[key] = HfApi().model_info(mid).sha
-        except Exception:  # noqa: BLE001 -- revision logging must never break a run
+        except Exception:
             revisions[key] = "unknown"
     return revisions

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from awake.eval.vqa_consistency import extract_choice
-
 from _paths import GEN, PREPARED, ensure_dirs, load_config
 from _prompts import format_choices, render
+
+from awake.eval.vqa_consistency import extract_choice
 
 
 def _expl_by_id(gen_rows: list[dict]) -> dict[str, str]:
@@ -66,7 +66,6 @@ def main() -> None:  # pragma: no cover - slow path
 
     import pandas as pd
     import torch
-
     from _models import load_qwen_lm, load_qwen_vl
 
     cfg = load_config("pipelines")

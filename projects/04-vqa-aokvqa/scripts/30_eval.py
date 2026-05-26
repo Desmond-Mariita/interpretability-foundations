@@ -24,7 +24,7 @@ PAIRS = (("A", "B"), ("A", "B7"), ("B", "B7"))
 def _consistency_vector(original: list, ablated: list) -> np.ndarray:
     """Per-item 1.0/0.0 consistency (primary policy) for bootstrapping the delta."""
     return np.array(
-        [float(o is not None and a is not None and o == a) for o, a in zip(original, ablated)]
+        [float(o is not None and a is not None and o == a) for o, a in zip(original, ablated, strict=True)]
     )
 
 
@@ -73,7 +73,7 @@ def compute_subset_metrics(gen: dict, abl: dict, gold: list[int],
         div = pipeline_divergence(gen[x]["answer_idx"], gen[y]["answer_idx"], gold)
         agree_vec = np.array([
             float(ax is not None and ay is not None and ax == ay)
-            for ax, ay in zip(gen[x]["answer_idx"], gen[y]["answer_idx"])
+            for ax, ay in zip(gen[x]["answer_idx"], gen[y]["answer_idx"], strict=True)
         ])
         lo, _, hi = bootstrap_ci(1.0 - agree_vec, n_resamples=n_resamples, seed=seed)
         divergence[f"{x}_vs_{y}"] = {
@@ -91,7 +91,7 @@ def _gen_dict(df) -> dict:
 
 
 def _none_list(series) -> list:
-    """pandas reads missing ints as NaN; map back to None."""
+    """Pandas reads missing ints as NaN; map back to None."""
     import math
 
     return [None if (isinstance(v, float) and math.isnan(v)) else int(v) for v in series]
@@ -106,7 +106,6 @@ def main() -> None:  # pragma: no cover - slow/real-run path
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import pandas as pd
-
     from _models import model_revisions
     from _paths import ASSETS, GEN, OUTPUTS, PREPARED, ensure_dirs, load_config
 
@@ -131,7 +130,7 @@ def main() -> None:  # pragma: no cover - slow/real-run path
 
     metrics = {
         "split": load_config("data")["split"],
-        "n": int(len(prep)),
+        "n": len(prep),
         "n_filtered": int((~prep["leakage_flag"]).sum()),
         "prompt_variant": "main",
         "model_revisions": model_revisions(cfg["models"]),
@@ -150,10 +149,15 @@ def main() -> None:  # pragma: no cover - slow/real-run path
     accs = [u[p]["accuracy"] for p in labels]
     parses = [u[p]["parse_rate"]["answer"] for p in labels]
     fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-    axes[0].bar(labels, deltas); axes[0].axhline(0, color="k", lw=0.8)
+    axes[0].bar(labels, deltas)
+    axes[0].axhline(0, color="k", lw=0.8)
     axes[0].set_title("self-rationale recoverability gain (Delta)")
-    axes[1].bar(labels, accs); axes[1].set_title("accuracy"); axes[1].set_ylim(0, 1)
-    axes[2].bar(labels, parses); axes[2].set_title("parse rate"); axes[2].set_ylim(0, 1)
+    axes[1].bar(labels, accs)
+    axes[1].set_title("accuracy")
+    axes[1].set_ylim(0, 1)
+    axes[2].bar(labels, parses)
+    axes[2].set_title("parse rate")
+    axes[2].set_ylim(0, 1)
     fig.tight_layout()
     fig.savefig(ASSETS / "hero.png", dpi=150)
     print("wrote metrics.json + hero.png")

@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from awake.eval.vqa_consistency import explanation_leaks_answer, extract_choice
-
 from _paths import GEN, PREPARED, ensure_dirs, load_config
 from _prompts import format_choices, render
+
+from awake.eval.vqa_consistency import explanation_leaks_answer, extract_choice
 
 
 def _split_answer_explanation(raw: str) -> tuple[str, str]:
@@ -69,7 +69,6 @@ def main() -> None:  # pragma: no cover - slow path
 
     import pandas as pd
     import torch
-
     from _models import (
         load_blip2_captioner,
         load_qwen_lm,

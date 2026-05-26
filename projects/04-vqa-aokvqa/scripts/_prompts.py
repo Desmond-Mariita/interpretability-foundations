@@ -6,7 +6,7 @@ _LETTERS = "ABCD"
 
 
 def format_choices(choices: list[str]) -> str:
-    """Render choices as a lettered block: ``A. <c0>\\nB. <c1>`` ..."""
+    r"""Render choices as a lettered block: ``A. <c0>\nB. <c1>`` ..."""
     return "\n".join(f"{_LETTERS[i]}. {c}" for i, c in enumerate(choices))
 
 
