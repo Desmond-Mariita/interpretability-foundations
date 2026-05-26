@@ -179,8 +179,10 @@ def main() -> None:
             m: dict(
                 zip(
                     ("ci_low", "mean", "ci_high"),
+                    # drop NaNs (e.g. AUPRC on single-class windows) so the table mean
+                    # matches the figure's nanmean rather than counting NaN as 0
                     bootstrap_ci(
-                        np.nan_to_num(v),
+                        v[~np.isnan(v)] if v.size else v,
                         cfg["bootstrap"]["n_resamples"],
                         cfg["bootstrap"]["alpha"],
                         cfg["bootstrap"]["seed"],

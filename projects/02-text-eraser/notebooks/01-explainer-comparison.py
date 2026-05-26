@@ -29,7 +29,8 @@
 #
 # ### What we are measuring
 #
-# We fine-tune `microsoft/deberta-v3-base` on the ERASER Movies sentiment dataset and
+# We fine-tune `roberta-base` on the ERASER Movies sentiment dataset (the spec named
+# `microsoft/deberta-v3-base`, but DeBERTa-v3 NaNs under this env's stack — see ADR 002) and
 # run four explainers — LIME, Integrated Gradients, Gradient×Input, and (optionally)
 # SHAP PartitionExplainer — plus a **random baseline** that assigns uniform random
 # attribution scores.  For each explainer we compute:
@@ -247,7 +248,7 @@ HEATMAP_N = 2  # number of examples to visualise
 _EXPLAINER_ORDER = [
     "lime",
     "integrated_gradients",
-    "gradient_x_input",
+    "grad_x_input",
     "shap_partition",
     "random",
 ]
@@ -364,8 +365,8 @@ if not _skip_heatmaps:
 # ## 4. Pairwise significance summary
 #
 # The table below shows, for each pair of real explainers, whether the difference in
-# comprehensiveness and AUPRC is statistically significant after Bonferroni correction
-# over the 3 real-explainer pairs.  A p-value < 0.05 (post-correction) is bolded.
+# comprehensiveness is statistically significant after Bonferroni correction over the
+# 3 real-explainer pairs (`*` marks significant pairs).
 
 # %%
 _bonf_alpha = metrics_raw.get("bonferroni_alpha", 0.05)
@@ -416,10 +417,10 @@ else:
 # ### Relationship to the limitations
 #
 # All numbers here are generated under the **512-subword truncation contract**: reviews
-# longer than 512 subwords are truncated, and only the visible prefix is evaluated.  The
-# `truncation_coverage` stratification in `metrics.json` (full-sample vs.
-# coverage ≥ 0.8) provides a robustness check: if plausibility numbers shift
-# substantially between strata, the headline should cite the high-coverage stratum.
+# longer than 512 subwords are truncated, and only the visible prefix is evaluated.  Mean
+# `truncation_coverage` on this run is ~0.54, so a large fraction of human rationale falls
+# outside the window — a stated limitation that bears on the (uniformly low) plausibility
+# numbers. Reporting a coverage-gated headline is left as a v1.1 follow-up.
 #
 # Mask-replacement erasure (replacing with `[MASK]` rather than deleting tokens) is a
 # documented approximation.  It preserves sequence length and positional embeddings but

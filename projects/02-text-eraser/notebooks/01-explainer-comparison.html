@@ -7796,7 +7796,7 @@ a.anchor-link {
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
 <main>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3b0dc0b0">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=c5bab331">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7811,7 +7811,8 @@ provides a qualitative look at individual token attributions.</p>
 <p>The notebook will detect missing outputs early and print a clear error rather than
 crashing mid-cell.  All cells below are idempotent once the outputs are present.</p>
 <hr/>
-<h3 id="What-we-are-measuring">What we are measuring<a class="anchor-link" href="#What-we-are-measuring">¶</a></h3><p>We fine-tune <code>microsoft/deberta-v3-base</code> on the ERASER Movies sentiment dataset and
+<h3 id="What-we-are-measuring">What we are measuring<a class="anchor-link" href="#What-we-are-measuring">¶</a></h3><p>We fine-tune <code>roberta-base</code> on the ERASER Movies sentiment dataset (the spec named
+<code>microsoft/deberta-v3-base</code>, but DeBERTa-v3 NaNs under this env's stack — see ADR 002) and
 run four explainers — LIME, Integrated Gradients, Gradient×Input, and (optionally)
 SHAP PartitionExplainer — plus a <strong>random baseline</strong> that assigns uniform random
 attribution scores.  For each explainer we compute:</p>
@@ -7839,7 +7840,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=df70c8ed">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=75b151b1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7872,7 +7873,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=5f42c95a">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=851b64eb">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7911,7 +7912,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=30d1d18e">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=6e70d88d">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7946,7 +7947,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=2fb08ef7">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=6350136e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7980,7 +7981,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=de879249">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=711f9e38">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8021,7 +8022,7 @@ significance tests are reported alongside every number.</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=8edd1626">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3e9b4b75">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8034,7 +8035,7 @@ as <code>[lo, hi]</code>.  Numbers are populated from <code>metrics.json</code>;
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=0677499d">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=1e328d96">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8169,7 +8170,7 @@ lime                  0.015 [0.000, 0.032]   0.346 [0.303, 0.392]  0.037 [0.026,
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=55176a64">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e79d263e">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8185,7 +8186,7 @@ faithful nor plausible attributions.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=28bef583">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=07e1ea21">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8233,7 +8234,7 @@ faithful nor plausible attributions.</p>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=7d5298b3">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d043050b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8249,7 +8250,7 @@ visible window.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=7b1ebe4a">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=a87b78f5">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8266,7 +8267,7 @@ visible window.</p>
 <span class="n">_EXPLAINER_ORDER</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">"lime"</span><span class="p">,</span>
     <span class="s2">"integrated_gradients"</span><span class="p">,</span>
-    <span class="s2">"gradient_x_input"</span><span class="p">,</span>
+    <span class="s2">"grad_x_input"</span><span class="p">,</span>
     <span class="s2">"shap_partition"</span><span class="p">,</span>
     <span class="s2">"random"</span><span class="p">,</span>
 <span class="p">]</span>
@@ -8291,7 +8292,7 @@ visible window.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d8ee1626">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=941f6d2c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8343,7 +8344,7 @@ visible window.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=13458591">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=6d07dc2d">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8440,6 +8441,19 @@ Label: 0  |  coverage: 1.00
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  grad_x_input:
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output" data-mime-type="text/html" tabindex="0">
+<table style="border-collapse:collapse"><thead><tr><th>grad_x_input</th></tr></thead><tbody><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;"><s></s></td></tr><tr><td style="background:#e6f49d;padding:2px 4px;font-family:monospace;font-size:11px;">it</td></tr><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ'</td></tr><tr><td style="background:#fee797;padding:2px 4px;font-family:monospace;font-size:11px;">s</td></tr><tr><td style="background:#fee28f;padding:2px 4px;font-family:monospace;font-size:11px;">Ġa</td></tr><tr><td style="background:#fefab7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġgood</td></tr><tr><td style="background:#fef9b5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthing</td></tr><tr><td style="background:#fee391;padding:2px 4px;font-family:monospace;font-size:11px;">Ġmost</td></tr><tr><td style="background:#fdcc7a;padding:2px 4px;font-family:monospace;font-size:11px;">Ġanimated</td></tr><tr><td style="background:#fdd682;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsci</td></tr><tr><td style="background:#fef4ad;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ-</td></tr><tr><td style="background:#fee797;padding:2px 4px;font-family:monospace;font-size:11px;">Ġfi</td></tr><tr><td style="background:#fef2a9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġmovies</td></tr><tr><td style="background:#fee695;padding:2px 4px;font-family:monospace;font-size:11px;">Ġcome</td></tr><tr><td style="background:#feefa5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġfrom</td></tr><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġj</td></tr><tr><td style="background:#fee28f;padding:2px 4px;font-family:monospace;font-size:11px;">apan</td></tr><tr><td style="background:#fef2a9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ,</td></tr><tr><td style="background:#fee493;padding:2px 4px;font-family:monospace;font-size:11px;">Ġbecause</td></tr><tr><td style="background:#fee08b;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ"</td></tr><tr><td style="background:#fee28f;padding:2px 4px;font-family:monospace;font-size:11px;">Ġtitan</td></tr><tr><td style="background:#fef4ad;padding:2px 4px;font-family:monospace;font-size:11px;">Ġa</td></tr><tr><td style="background:#fa9a58;padding:2px 4px;font-family:monospace;font-size:11px;">.</td></tr><tr><td style="background:#fef1a7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġe</td></tr><tr><td style="background:#fdba6b;padding:2px 4px;font-family:monospace;font-size:11px;">.</td></tr><tr><td style="background:#fdde89;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ"</td></tr><tr><td style="background:#fef7b1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#fee18d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġproof</td></tr><tr><td style="background:#feeea3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthat</td></tr><tr><td style="background:#fdc877;padding:2px 4px;font-family:monospace;font-size:11px;">Ġh</td></tr><tr><td style="background:#fefdbb;padding:2px 4px;font-family:monospace;font-size:11px;">ollywood</td></tr><tr><td style="background:#fef8b3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġdoes</td></tr><tr><td style="background:#fdce7c;padding:2px 4px;font-family:monospace;font-size:11px;">Ġn</td></tr><tr><td style="background:#fdd884;padding:2px 4px;font-family:monospace;font-size:11px;">'t</td></tr><tr><td style="background:#fee08b;padding:2px 4px;font-family:monospace;font-size:11px;">Ġhave</td></tr><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġa</td></tr><tr><td style="background:#fdc675;padding:2px 4px;font-family:monospace;font-size:11px;">Ġclue</td></tr><tr><td style="background:#fee797;padding:2px 4px;font-family:monospace;font-size:11px;">Ġhow</td></tr><tr><td style="background:#fef5af;padding:2px 4px;font-family:monospace;font-size:11px;">Ġto</td></tr><tr><td style="background:#fee695;padding:2px 4px;font-family:monospace;font-size:11px;">Ġdo</td></tr><tr><td style="background:#fdda86;padding:2px 4px;font-family:monospace;font-size:11px;">Ġit</td></tr><tr><td style="background:#fdd884;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ.</td></tr><tr><td style="background:#fdc877;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#feeea3;padding:2px 4px;font-family:monospace;font-size:11px;">i</td></tr><tr><td style="background:#fddc87;padding:2px 4px;font-family:monospace;font-size:11px;">Ġdo</td></tr><tr><td style="background:#fdc877;padding:2px 4px;font-family:monospace;font-size:11px;">Ġn</td></tr><tr><td style="background:#fee28f;padding:2px 4px;font-family:monospace;font-size:11px;">'t</td></tr><tr><td style="background:#fdd682;padding:2px 4px;font-family:monospace;font-size:11px;">Ġknow</td></tr><tr><td style="background:#fee08b;padding:2px 4px;font-family:monospace;font-size:11px;">Ġwhat</td></tr><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthis</td></tr><tr><td style="background:#fef2a9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġfilm</td></tr><tr><td style="background:#fee899;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#fef2a9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsupposed</td></tr><tr><td style="background:#feeea3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġto</td></tr><tr><td style="background:#feefa5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġbe</td></tr><tr><td style="background:#fee18d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġabout</td></tr><tr><td style="background:#fdd07d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ.</td></tr><tr><td style="background:#fdcc7a;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#fef3ab;padding:2px 4px;font-family:monospace;font-size:11px;">from</td></tr><tr><td style="background:#feeda1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġwhat</td></tr></tbody></table>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
 <pre>  random:
 </pre>
 </div>
@@ -8482,6 +8496,19 @@ Label: 0  |  coverage: 1.00
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  grad_x_input:
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output" data-mime-type="text/html" tabindex="0">
+<table style="border-collapse:collapse"><thead><tr><th>grad_x_input</th></tr></thead><tbody><tr><td style="background:#c7e77f;padding:2px 4px;font-family:monospace;font-size:11px;"><s></s></td></tr><tr><td style="background:#b3de72;padding:2px 4px;font-family:monospace;font-size:11px;">caps</td></tr><tr><td style="background:#f6fbb3;padding:2px 4px;font-family:monospace;font-size:11px;">ule</td></tr><tr><td style="background:#feeea3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ:</td></tr><tr><td style="background:#fcfebb;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#eff8a9;padding:2px 4px;font-family:monospace;font-size:11px;">john</td></tr><tr><td style="background:#eaf6a3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthe</td></tr><tr><td style="background:#f8fcb5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġbapt</td></tr><tr><td style="background:#ecf7a5;padding:2px 4px;font-family:monospace;font-size:11px;">ist</td></tr><tr><td style="background:#fbfdb9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#fef5af;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsent</td></tr><tr><td style="background:#edf7a7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġfrom</td></tr><tr><td style="background:#fefebd;padding:2px 4px;font-family:monospace;font-size:11px;">Ġheaven</td></tr><tr><td style="background:#f5fab1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġto</td></tr><tr><td style="background:#f9fcb7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsee</td></tr><tr><td style="background:#fbfdb9;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#e6f49d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthe</td></tr><tr><td style="background:#def193;padding:2px 4px;font-family:monospace;font-size:11px;">Ġworld</td></tr><tr><td style="background:#f9fcb7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#feeda1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġworth</td></tr><tr><td style="background:#f2f9ad;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsaving</td></tr><tr><td style="background:#fcfebb;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ.</td></tr><tr><td style="background:#fef8b3;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#fef1a7;padding:2px 4px;font-family:monospace;font-size:11px;">he</td></tr><tr><td style="background:#fefdbb;padding:2px 4px;font-family:monospace;font-size:11px;">Ġmust</td></tr><tr><td style="background:#fef1a7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġfind</td></tr><tr><td style="background:#fef9b5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsome</td></tr><tr><td style="background:#fefebd;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsign</td></tr><tr><td style="background:#edf7a7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġof</td></tr><tr><td style="background:#d5ed88;padding:2px 4px;font-family:monospace;font-size:11px;">Ġhope</td></tr><tr><td style="background:#e9f5a1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġin</td></tr><tr><td style="background:#fef7b1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthe</td></tr><tr><td style="background:#fefdbb;padding:2px 4px;font-family:monospace;font-size:11px;">Ġpeople</td></tr><tr><td style="background:#fefebd;padding:2px 4px;font-family:monospace;font-size:11px;">Ġof</td></tr><tr><td style="background:#cfea84;padding:2px 4px;font-family:monospace;font-size:11px;">Ġnewfound</td></tr><tr><td style="background:#e0f295;padding:2px 4px;font-family:monospace;font-size:11px;">land</td></tr><tr><td style="background:#a9da6b;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ.</td></tr><tr><td style="background:#eff8a9;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#fdb668;padding:2px 4px;font-family:monospace;font-size:11px;">this</td></tr><tr><td style="background:#e0f295;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#f7834d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġlittle</td></tr><tr><td style="background:#bde278;padding:2px 4px;font-family:monospace;font-size:11px;">Ġmore</td></tr><tr><td style="background:#feea9d;padding:2px 4px;font-family:monospace;font-size:11px;">Ġthan</td></tr><tr><td style="background:#f5fab1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġa</td></tr><tr><td style="background:#f3faaf;padding:2px 4px;font-family:monospace;font-size:11px;">Ġtv</td></tr><tr><td style="background:#f2f9ad;padding:2px 4px;font-family:monospace;font-size:11px;">Ġsk</td></tr><tr><td style="background:#bde278;padding:2px 4px;font-family:monospace;font-size:11px;">it</td></tr><tr><td style="background:#f2f9ad;padding:2px 4px;font-family:monospace;font-size:11px;">Ġin</td></tr><tr><td style="background:#ecf7a5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġmovie</td></tr><tr><td style="background:#f9fcb7;padding:2px 4px;font-family:monospace;font-size:11px;">Ġform</td></tr><tr><td style="background:#fdda86;padding:2px 4px;font-family:monospace;font-size:11px;">Ġ.</td></tr><tr><td style="background:#fddc87;padding:2px 4px;font-family:monospace;font-size:11px;">Ċ</td></tr><tr><td style="background:#c9e880;padding:2px 4px;font-family:monospace;font-size:11px;">it</td></tr><tr><td style="background:#eaf6a3;padding:2px 4px;font-family:monospace;font-size:11px;">Ġis</td></tr><tr><td style="background:#fee797;padding:2px 4px;font-family:monospace;font-size:11px;">Ġwatch</td></tr><tr><td style="background:#eaf6a3;padding:2px 4px;font-family:monospace;font-size:11px;">able</td></tr><tr><td style="background:#ecf7a5;padding:2px 4px;font-family:monospace;font-size:11px;">Ġand</td></tr><tr><td style="background:#fef7b1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġapparently</td></tr><tr><td style="background:#c7e77f;padding:2px 4px;font-family:monospace;font-size:11px;">Ġwill</td></tr><tr><td style="background:#fef7b1;padding:2px 4px;font-family:monospace;font-size:11px;">Ġbe</td></tr></tbody></table>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
 <pre>  random:
 </pre>
 </div>
@@ -8495,19 +8522,19 @@ Label: 0  |  coverage: 1.00
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=aaf78eb8">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=7d001917">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
 <h2 id="4.-Pairwise-significance-summary">4. Pairwise significance summary<a class="anchor-link" href="#4.-Pairwise-significance-summary">¶</a></h2><p>The table below shows, for each pair of real explainers, whether the difference in
-comprehensiveness and AUPRC is statistically significant after Bonferroni correction
-over the 3 real-explainer pairs.  A p-value &lt; 0.05 (post-correction) is bolded.</p>
+comprehensiveness is statistically significant after Bonferroni correction over the
+3 real-explainer pairs (<code>*</code> marks significant pairs).</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=45c3d86a">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=3840c6f1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8606,7 +8633,7 @@ integrated_gradients_vs_lime               +0.505  p=0.000*
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f6781e15">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a0477a06">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -8647,10 +8674,10 @@ empty — reproducing DeYoung et al. (2020) that the two are distinct axes.</p>
 <code>REPORT.md</code>); faithfulness is computed entirely on the model-visible sequence and is not
 affected in the same way.</p>
 <h3 id="Relationship-to-the-limitations">Relationship to the limitations<a class="anchor-link" href="#Relationship-to-the-limitations">¶</a></h3><p>All numbers here are generated under the <strong>512-subword truncation contract</strong>: reviews
-longer than 512 subwords are truncated, and only the visible prefix is evaluated.  The
-<code>truncation_coverage</code> stratification in <code>metrics.json</code> (full-sample vs.
-coverage ≥ 0.8) provides a robustness check: if plausibility numbers shift
-substantially between strata, the headline should cite the high-coverage stratum.</p>
+longer than 512 subwords are truncated, and only the visible prefix is evaluated.  Mean
+<code>truncation_coverage</code> on this run is ~0.54, so a large fraction of human rationale falls
+outside the window — a stated limitation that bears on the (uniformly low) plausibility
+numbers. Reporting a coverage-gated headline is left as a v1.1 follow-up.</p>
 <p>Mask-replacement erasure (replacing with <code>[MASK]</code> rather than deleting tokens) is a
 documented approximation.  It preserves sequence length and positional embeddings but
 introduces a <code>[MASK]</code> token that the model was never fine-tuned to ignore; this

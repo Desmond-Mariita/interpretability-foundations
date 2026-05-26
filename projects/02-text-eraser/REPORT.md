@@ -115,8 +115,9 @@ suff = p_j(x) - p_j(only top-k_d rationale)
 where `only top-k_d rationale` is the visible sequence with all *non*-rationale tokens
 replaced by `[MASK]`.
 
-`k_d` (the dataset rationale budget) is the median human-rationale length on the
-train + val splits, computed once and stored in `configs/data.yaml`.
+`k_d` (the dataset rationale budget) is a fixed fraction (0.20) of the visible tokens,
+set in `configs/explainers.yaml` and applied uniformly across explainers and examples
+(not a per-example gold length).
 
 **AOPC** (area over the perturbation curve, DeYoung et al. 2020):
 
@@ -172,8 +173,8 @@ coverage floor) and implement the `Explainer` Protocol over a `ModelAdapter`.
 | Explainer | Implementation | Notes |
 |---|---|---|
 | **LIME** | `lime_text.LimeTextExplainer` | Whitespace-level; identity alignment path to word scores |
-| **Integrated Gradients** | `captum.LayerIntegratedGradients` on the embedding layer | Baseline = zero-embedding vector |
-| **Gradient×Input** | Gradient of predicted-class logit w.r.t. embedding × embedding; L2-norm per token | Replaces attention rollout; see note below |
+| **Integrated Gradients** | `captum.LayerIntegratedGradients` on the embedding layer | Baseline = pad-token embedding; per-token = sum over embedding dims |
+| **Gradient×Input** | Gradient of predicted-class logit w.r.t. embedding × embedding, summed over dims (signed) | Replaces attention rollout; see note below |
 | **SHAP PartitionExplainer** | `shap.PartitionExplainer` with text masker | Optional extra `[explain-shap]`; marked `slow` in CI |
 | **Random baseline** | Uniform random scores, seeded | Floor reference in all figures and tables |
 
@@ -273,9 +274,9 @@ entirely on the model-visible sequence.
   only; intra-example variance from the stochastic surrogate fitting is ignored.
 - **Attention as explanation is contested.**  We sidestep this entirely by using
   Gradient×Input rather than rollout; no attention-faithfulness claim is made.
-- **Single model + single dataset.**  All findings are specific to
-  `microsoft/deberta-v3-base` fine-tuned on ERASER Movies.  Generalisation to other
-  architectures, tasks, or domains is not asserted.
+- **Single model + single dataset.**  All findings are specific to `roberta-base`
+  fine-tuned on ERASER Movies.  Generalisation to other architectures, tasks, or domains
+  is not asserted.
 
 ## 9. References
 
