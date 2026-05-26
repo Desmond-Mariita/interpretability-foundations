@@ -160,7 +160,10 @@ for the 3B VLM (B, Delta=0.144) -- i.e. the more capable model leans *more* on i
 self-rationale, the central faithfulness red flag this probe was built to detect. Note all
 three no-explanation baselines sit near 0.50, so a naive reading of the raw with-explanation
 rate (0.99 for B7) would badly overstate image-independence; the paired baseline is what
-makes that visible.
+makes that visible. The paired-parsed-only sensitivity (dropping items unparseable on either
+side; in `metrics.json` under `consistency.paired_only`) gives near-identical Deltas
+(A 0.397, B 0.144, B7 0.486), as expected given the high parse rates -- so the headline
+None-as-inconsistent policy is not an artifact of unparseable outputs.
 
 ### 5.3 Inter-pipeline divergence
 

@@ -295,6 +295,7 @@ vqa = [
     { name = "accelerate" },
     { name = "qwen-vl-utils" },
     { name = "torchvision" },
+    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -333,6 +334,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.2" },
     { name = "torchvision", marker = "extra == 'vqa'", specifier = ">=0.17" },
     { name = "transformers", specifier = ">=4.44" },
+    { name = "transformers", marker = "extra == 'vqa'", specifier = ">=5.9" },
 ]
 provides-extras = ["dev", "explain-shap", "vqa"]
 

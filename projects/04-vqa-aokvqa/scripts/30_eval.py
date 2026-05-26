@@ -53,6 +53,10 @@ def compute_subset_metrics(
         ans = gen[p]["answer_idx"]
         with_e = consistency_rate(ans, abl[p]["expl"])
         no_e = consistency_rate(ans, abl[p]["noexpl"])
+        # Paired-parsed-only sensitivity (drop pairs unparseable on either side); the
+        # primary (None=inconsistent) policy above remains the headline (see ADR-004).
+        with_e_po = consistency_rate(ans, abl[p]["expl"], paired_only=True)
+        no_e_po = consistency_rate(ans, abl[p]["noexpl"], paired_only=True)
         delta_test = paired_diff_test(
             _consistency_vector(ans, abl[p]["expl"]),
             _consistency_vector(ans, abl[p]["noexpl"]),
@@ -72,6 +76,11 @@ def compute_subset_metrics(
                 "no_expl": no_e,
                 "delta": with_e - no_e,
                 "delta_ci": [delta_test["ci_low"], delta_test["ci_high"]],
+                "paired_only": {
+                    "with_expl": with_e_po,
+                    "no_expl": no_e_po,
+                    "delta": with_e_po - no_e_po,
+                },
             },
         }
 
@@ -155,12 +164,17 @@ def main() -> None:  # pragma: no cover - slow/real-run path
     u = metrics["subsets"]["unfiltered"]["pipelines"]
     labels = list(PIPELINES)
     deltas = [u[p]["consistency"]["delta"] for p in labels]
+    # Asymmetric error bars from the paired-bootstrap CI [lo, hi] on each delta.
+    delta_err = [
+        [u[p]["consistency"]["delta"] - u[p]["consistency"]["delta_ci"][0] for p in labels],
+        [u[p]["consistency"]["delta_ci"][1] - u[p]["consistency"]["delta"] for p in labels],
+    ]
     accs = [u[p]["accuracy"] for p in labels]
     parses = [u[p]["parse_rate"]["answer"] for p in labels]
     fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-    axes[0].bar(labels, deltas)
+    axes[0].bar(labels, deltas, yerr=delta_err, capsize=4)
     axes[0].axhline(0, color="k", lw=0.8)
-    axes[0].set_title("self-rationale recoverability gain (Delta)")
+    axes[0].set_title("self-rationale recoverability gain (Delta, 95% CI)")
     axes[1].bar(labels, accs)
     axes[1].set_title("accuracy")
     axes[1].set_ylim(0, 1)

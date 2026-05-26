@@ -347,14 +347,14 @@ else:
 # %% [markdown]
 # ## 4. Discussion
 #
-# _Full discussion is in `REPORT.md section 6` and will be populated once the real run
-# completes (Task 18). The framing below describes what the results will show._
+# _The full written discussion is in `REPORT.md` section 6; this is a reading guide for the
+# tables and figure above._
 #
-# **Reading Delta:** a positive Delta for Pipeline A (caption-then-LLM) would indicate
-# that the LLM recovers its original answer primarily from its own explanation rather than
-# from any residual image information -- exactly the self-rationale recoverability red flag
-# the probe was designed to detect. A near-zero Delta for either pipeline suggests the
-# question alone drives the answer, regardless of visual or explanatory context.
+# **Reading Delta:** a positive Delta for Pipeline A (caption-then-LLM) indicates that the
+# LLM recovers its original answer primarily from its own explanation rather than from any
+# residual image information -- exactly the self-rationale recoverability red flag the probe
+# was designed to detect. A near-zero Delta for either pipeline suggests the question alone
+# drives the answer, regardless of visual or explanatory context.
 #
 # **Reading divergence:** high A-vs-B divergence with similar accuracy across the two
 # pipelines suggests the pipelines are failing on different items and succeeding on
