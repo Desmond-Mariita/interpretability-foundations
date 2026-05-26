@@ -1,0 +1,8 @@
+# A-OKVQA data preparation config.
+dataset: "HuggingFaceM4/A-OKVQA"   # bundles the COCO image as a PIL object per item
+split: "validation"                 # labelled headline split (~1.1k)
+# Subset is a PILOT/SMOKE convenience ONLY -- never the reported headline.
+# Leave subset_n null for the real headline run; set + record seed for pilots.
+subset_n: null
+seed: 0
+image_format: "jpg"

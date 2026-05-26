@@ -1,0 +1,75 @@
+# Models, generation settings, and prompts for the two pipelines.
+generation:
+  do_sample: false
+  max_new_tokens: 256
+  torch_dtype: "float16"
+  device_map: "cuda:0"
+
+models:
+  blip2: "Salesforce/blip2-opt-2.7b"
+  qwen_lm: "Qwen/Qwen2.5-7B-Instruct"
+  qwen_vl_3b: "Qwen/Qwen2.5-VL-3B-Instruct"
+  qwen_vl_7b: "Qwen/Qwen2.5-VL-7B-Instruct"   # B7: required for the headline
+
+caption:
+  prompt: "Question: describe the image in detail. Answer:"
+
+null_caption: "(no visual information available)"   # Pipeline A vision ablation
+
+# Two prompt variants. 'main' is the headline; 'alt' is a wording-only sensitivity arm.
+# Placeholders: {question} {choices_block}; optional {caption}; optional {explanation}.
+prompts:
+  main:
+    answer: |
+      Answer the multiple-choice question. Respond with a first line exactly
+      'Answer: <letter>' (one of A-D), then one sentence explaining why.
+      Question: {question}
+      Choices:
+      {choices_block}
+    answer_with_caption: |
+      Answer the multiple-choice question using the image description.
+      Respond with a first line exactly 'Answer: <letter>' (one of A-D), then one
+      sentence explaining why.
+      Image description: {caption}
+      Question: {question}
+      Choices:
+      {choices_block}
+    ablate_with_expl: |
+      You previously answered this question and explained: "{explanation}".
+      Re-answer it now. Respond with a first line exactly 'Answer: <letter>' (one of
+      A-D), then one sentence explaining why.
+      Question: {question}
+      Choices:
+      {choices_block}
+    ablate_no_expl: |
+      Answer the multiple-choice question. Respond with a first line exactly
+      'Answer: <letter>' (one of A-D), then one sentence explaining why.
+      Question: {question}
+      Choices:
+      {choices_block}
+  alt:
+    answer: |
+      Choose the single best option. Begin your reply with 'Answer: <letter>'
+      (A, B, C, or D) and add one sentence of justification.
+      Q: {question}
+      Options:
+      {choices_block}
+    answer_with_caption: |
+      Using only this description of a photo, choose the single best option. Begin
+      with 'Answer: <letter>' (A-D) and add one sentence of justification.
+      Description: {caption}
+      Q: {question}
+      Options:
+      {choices_block}
+    ablate_with_expl: |
+      Earlier you said: "{explanation}". Now choose the single best option. Begin
+      with 'Answer: <letter>' (A-D) and add one sentence of justification.
+      Q: {question}
+      Options:
+      {choices_block}
+    ablate_no_expl: |
+      Choose the single best option. Begin with 'Answer: <letter>' (A-D) and add one
+      sentence of justification.
+      Q: {question}
+      Options:
+      {choices_block}
