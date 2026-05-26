@@ -24,6 +24,8 @@ dependencies = [
   "lime>=0.2.0.1",
   "sentencepiece>=0.2",
   "protobuf>=4.0",
+  "pillow>=10.0",
+  "huggingface-hub>=0.24",
 ]
 
 [project.optional-dependencies]
