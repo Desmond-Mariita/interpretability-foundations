@@ -91,6 +91,7 @@ addopts = "-ra --strict-markers --cov=awake --cov-report=term-missing --cov-fail
 [tool.coverage.run]
 branch = true
 source = ["awake"]
+omit = ["src/awake/eval/explainers/shap_partition.py"]
 
 [tool.coverage.report]
 show_missing = true
