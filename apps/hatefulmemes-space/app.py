@@ -70,7 +70,12 @@ class _RealBundle:
         # -- LightGBM head from HF Hub -------------------------------------
         from huggingface_hub import hf_hub_download
 
-        repo_id = os.environ["HF_MODEL_REPO"]
+        repo_id = os.environ.get("HF_MODEL_REPO")
+        if not repo_id:
+            raise RuntimeError(
+                "HF_MODEL_REPO is not set. Set it as a Space variable to the HuggingFace "
+                "Model Hub repo that hosts the B/32 LightGBM head (fused.txt + head_meta.json)."
+            )
         model_path = hf_hub_download(repo_id=repo_id, filename="fused.txt")
         meta_path = hf_hub_download(repo_id=repo_id, filename="head_meta.json")
 
