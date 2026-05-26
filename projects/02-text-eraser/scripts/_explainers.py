@@ -11,7 +11,7 @@ from awake.eval.explainers.random_baseline import RandomExplainer
 def build_explainer(name: str, model, tok, cfg: dict, device: str):
     """Return an explainer instance by name using ``cfg`` for hyperparameters."""
     if name == "random":
-        return RandomExplainer(seed=cfg["bootstrap"]["seed"])
+        return RandomExplainer(tokenizer=tok, seed=cfg["bootstrap"]["seed"])
     if name == "grad_x_input":
         return GradientXInputExplainer(model, tok, device=device)
     if name == "integrated_gradients":

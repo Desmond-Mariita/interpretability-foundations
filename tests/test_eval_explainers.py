@@ -21,6 +21,21 @@ def test_random_explainer_is_seed_deterministic_and_right_length():
 
 
 @pytest.mark.smoke
+def test_random_explainer_text_path_tokenizes():
+    """RandomExplainer accepts the {'text': ...} example the driver passes."""
+    import importlib
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path("projects/02-text-eraser/scripts").resolve()))
+    stub = importlib.import_module("_stub_model")
+    _, tok = stub.build_stub_model_and_tokenizer()
+    attr = RandomExplainer(tokenizer=tok, seed=0).attribute({"text": "w5 w6 w7"})
+    assert attr.n_tokens > 0
+    assert np.all(np.isfinite(attr.scores))
+
+
+@pytest.mark.smoke
 def test_gradient_x_input_runs_on_stub():
     import importlib
     import pathlib

@@ -1,7 +1,12 @@
-model_name: "microsoft/deberta-v3-base"
+# roberta-base replaces deberta-v3-base: DeBERTa-v3's disentangled attention
+# diverges to NaN under this env's transformers 5.9 / torch 2.12 / CUDA 13 stack
+# (a library bug; reproduced with warmup + gradient clipping at lr 1e-5 and 2e-5).
+# RoBERTa uses standard attention, fine-tunes cleanly, and keeps a fast tokenizer
+# with offsets/word_ids (required by the prepare + explainer steps). See ADR 002.
+model_name: "roberta-base"
 num_labels: 2
 lr: 2.0e-5
 epochs: 3
-batch_size: 8
+batch_size: 16
 fp16: true
 seed: 42

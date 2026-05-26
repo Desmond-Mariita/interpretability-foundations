@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from itertools import combinations, pairwise
 from pathlib import Path
 
@@ -22,6 +23,21 @@ from awake.eval.plausibility import (
 )
 
 REAL_EXPLAINERS = ["grad_x_input", "integrated_gradients", "lime"]
+
+
+def _clean_word_ids(raw) -> list[int | None]:
+    """Normalise a parquet-loaded word_ids row to ``list[int | None]``.
+
+    Parquet stores the ``[None, 0, 1, ...]`` list as a float array, turning the
+    special-token ``None`` entries into NaN; restore them to real ``None``/ints.
+    """
+    out: list[int | None] = []
+    for w in raw:
+        if w is None or (isinstance(w, float) and math.isnan(w)):
+            out.append(None)
+        else:
+            out.append(int(w))
+    return out
 
 
 def expected_calibration_error(conf, _preds, labels, n_bins=10) -> float:
@@ -58,7 +74,7 @@ def _faithfulness_for(adapter, sub, attr_df, cfg) -> dict[str, np.ndarray]:
     for i, row in sub.reset_index(drop=True).iterrows():
         ids = np.asarray(row["input_ids"])
         scores = _scores_for_row(attr_df, i, ids.size)
-        visible = np.array([w is not None for w in row["word_ids"]], dtype=bool)
+        visible = np.array([w is not None for w in _clean_word_ids(row["word_ids"])], dtype=bool)
         probs = adapter.predict_proba(ids[None, :])[0]
         pred = int(probs.argmax())
         comp.append(
@@ -87,12 +103,21 @@ def _plausibility_for(sub, attr_df, cfg, word_level: bool) -> dict[str, np.ndarr
     for i, row in sub.reset_index(drop=True).iterrows():
         n_words = int(row["n_words"])
         gold = clip_gold_mask_to_window(np.asarray(row["gold_mask"]), n_words)
-        raw = _scores_for_row(attr_df, i, len(row["input_ids"]) if not word_level else n_words)
         if word_level:
+            raw = _scores_for_row(attr_df, i, n_words)
             word_scores = np.resize(raw, n_words)
         else:
-            word_scores = aggregate_subwords_to_words(raw, row["word_ids"], n_words)
-        k = max(1, round(cfg["k_d"] * n_words))
+            wids = _clean_word_ids(row["word_ids"])
+            raw = _scores_for_row(attr_df, i, len(wids))
+            # The tokenizer's word segmentation can differ slightly from the
+            # whitespace split behind n_words/gold; size to cover all word ids,
+            # then align to the gold range (documented alignment approximation).
+            max_wid = max((w for w in wids if w is not None), default=-1)
+            word_scores = aggregate_subwords_to_words(raw, wids, max(n_words, max_wid + 1))
+        # align predicted word scores and the gold mask to a common length
+        length = min(len(word_scores), len(gold))
+        word_scores, gold = word_scores[:length], gold[:length]
+        k = max(1, round(cfg["k_d"] * length))
         _, _, f1 = token_prf1_at_k(word_scores, gold, k)
         f1s.append(f1)
         auprcs.append(token_auprc(word_scores, gold))

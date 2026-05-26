@@ -27,8 +27,8 @@ pipeline: data prepare
 
 notebook NAME="01-explainer-comparison":
     cd "{{project_root}}/notebooks" && \
-        uv run jupytext --to ipynb {{NAME}}.py && \
-        uv run jupyter nbconvert --to notebook --execute --inplace {{NAME}}.ipynb && \
+        P2_PROJECT_ROOT="{{project_root}}" uv run jupytext --to ipynb {{NAME}}.py && \
+        P2_PROJECT_ROOT="{{project_root}}" uv run jupyter nbconvert --to notebook --execute --inplace {{NAME}}.ipynb && \
         uv run jupyter nbconvert --to html {{NAME}}.ipynb && \
         uv run nbstripout {{NAME}}.ipynb
 

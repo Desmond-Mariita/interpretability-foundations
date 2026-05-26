@@ -62,19 +62,35 @@ def train_loop(
     max_len,
     fp16,
 ) -> dict:
-    """Minimal training loop; saves model + checkpoint SHA. Returns metadata."""
+    """Train with warmup + gradient clipping; save model + SHA. Returns metadata.
+
+    DeBERTa-v3 diverges to NaN without a learning-rate warmup and gradient
+    clipping, so both are applied here; per-step loss is logged for visibility.
+    """
+    from transformers import get_linear_schedule_with_warmup
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device).train()
     ds = _TextDataset(texts, labels, tok, max_len)
     dl = DataLoader(ds, batch_size=batch_size, shuffle=True)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
-    for _ in range(epochs):
+    total_steps = max(1, epochs * len(dl))
+    sched = get_linear_schedule_with_warmup(
+        opt, num_warmup_steps=int(0.1 * total_steps), num_training_steps=total_steps
+    )
+    step = 0
+    for epoch in range(epochs):
         for batch in dl:
             opt.zero_grad()
             batch = {k: v.to(device) for k, v in batch.items()}
             out = model(**batch)
             out.loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
+            sched.step()
+            step += 1
+            if step % 50 == 0 or step == 1:
+                print(f"epoch {epoch} step {step}/{total_steps} loss {out.loss.item():.4f}")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(out_dir)

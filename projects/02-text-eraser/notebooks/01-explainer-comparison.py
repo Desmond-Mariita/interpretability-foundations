@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import pathlib
 import sys
 import warnings
@@ -69,8 +70,25 @@ with contextlib.suppress(ImportError):
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-NOTEBOOK_DIR = pathlib.Path(__file__).parent
-PROJECT_ROOT = NOTEBOOK_DIR.parent
+# Locate the project root robustly. ``__file__`` is undefined when nbconvert executes the
+# notebook and the kernel cwd may be $HOME, so prefer an explicit env var (set by
+# ``just notebook``), then fall back to several candidate paths, picking the first that
+# actually contains the project (``configs/model.yaml`` or a produced ``metrics.json``).
+_candidates = []
+if os.environ.get("P2_PROJECT_ROOT"):
+    _candidates.append(pathlib.Path(os.environ["P2_PROJECT_ROOT"]))
+with contextlib.suppress(NameError):
+    _candidates.append(pathlib.Path(__file__).resolve().parent.parent)
+_cwd = pathlib.Path.cwd()
+_candidates += [_cwd, _cwd.parent, _cwd / "projects" / "02-text-eraser"]
+PROJECT_ROOT = next(
+    (
+        d
+        for d in _candidates
+        if (d / "configs" / "model.yaml").exists() or (d / "metrics.json").exists()
+    ),
+    _cwd.parent,
+)
 METRICS_PATH = PROJECT_ROOT / "metrics.json"
 HERO_PATH = PROJECT_ROOT / "assets" / "faithfulness_plausibility.png"
 ATTRIBUTION_CACHE_DIR = PROJECT_ROOT / "outputs" / "attributions"
@@ -107,17 +125,18 @@ if _missing:
 with METRICS_PATH.open() as fh:
     metrics_raw: dict = json.load(fh)
 
-# Expected top-level keys (see scripts/30_eval.py):
-#   "explainers":  {explainer_name: {metric: {mean, ci_lo, ci_hi}, ...}}
-#   "pairwise":    {"{a}_vs_{b}": {metric: {diff, p_bonferroni}}}
-#   "classifier":  {accuracy, macro_f1, ece}
+# Top-level keys (see scripts/30_eval.py):
+#   "metrics":                    {explainer_name: {metric: {ci_low, mean, ci_high}, ...}}
+#   "pairwise_comprehensiveness": {"{a}_vs_{b}": {mean_diff, p_value, significant, ...}}
+#   "diagnostics":                {accuracy, macro_f1, ece, class_balance, n}
 
-explainers_data: dict = metrics_raw.get("explainers", {})
-classifier_data: dict = metrics_raw.get("classifier", {})
+explainers_data: dict = metrics_raw.get("metrics", {})
+classifier_data: dict = metrics_raw.get("diagnostics", {})
+pairwise_data: dict = metrics_raw.get("pairwise_comprehensiveness", {})
 
 if not explainers_data:
     warnings.warn(
-        "metrics.json loaded but 'explainers' key is empty — "
+        "metrics.json loaded but 'metrics' key is empty — "
         "did `just eval` complete successfully?",
         stacklevel=1,
     )
@@ -159,8 +178,8 @@ for explainer_name, mdict in explainers_data.items():
     for metric_key, col_label in _METRIC_LABELS.items():
         entry = mdict.get(metric_key, {})
         mean = entry.get("mean", float("nan"))
-        ci_lo = entry.get("ci_lo", float("nan"))
-        ci_hi = entry.get("ci_hi", float("nan"))
+        ci_lo = entry.get("ci_low", float("nan"))
+        ci_hi = entry.get("ci_high", float("nan"))
         row[col_label] = f"{mean:.3f} [{ci_lo:.3f}, {ci_hi:.3f}]"
     rows.append(row)
 
@@ -297,52 +316,45 @@ def render_token_heatmap(
 # ---------------------------------------------------------------------------
 if not _skip_heatmaps:
     try:
-        df_prepared = pd.read_parquet(PREPARED_TEST)
-        # Select high-coverage examples
-        _cov_col = "truncation_coverage"
-        if _cov_col in df_prepared.columns:
-            _examples = df_prepared[df_prepared[_cov_col] >= 0.8].head(HEATMAP_N)
-        else:
-            _examples = df_prepared.head(HEATMAP_N)
-
+        # The subsample drives the cache's example_id (0-based positional id), and each
+        # cache carries its own token_str/score grid — render each explainer on its own
+        # tokens so a heatmap reflects exactly what that explainer scored.
+        subsample = pd.read_parquet(ATTRIBUTION_CACHE_DIR / "subsample.parquet").reset_index(
+            drop=True
+        )
         _attr_caches: dict[str, pd.DataFrame] = {}
         for parquet_file in sorted(ATTRIBUTION_CACHE_DIR.glob("*.parquet")):
-            _name = parquet_file.stem  # e.g. "lime", "integrated_gradients"
-            _attr_caches[_name] = pd.read_parquet(parquet_file)
+            if parquet_file.stem == "subsample":
+                continue
+            _attr_caches[parquet_file.stem] = pd.read_parquet(parquet_file)
 
-        for _row_idx, (_idx, example_row) in enumerate(_examples.iterrows()):
-            example_id = example_row.get("example_id", _idx)
-            tokens = example_row.get("tokens_visible", example_row.get("tokens", []))
-            if isinstance(tokens, str):
-                tokens = tokens.split()
+        # Prefer high-coverage examples for a fairer qualitative look.
+        _cov = subsample["truncation_coverage"]
+        _ids = subsample.index[_cov >= 0.8].tolist()[:HEATMAP_N]
+        if not _ids:
+            _ids = subsample.index.tolist()[:HEATMAP_N]
 
-            print(f"\n--- Example {_row_idx + 1} (id={example_id}) ---")
-            print(f"Label: {example_row.get('label', '?')}  |  "
-                  f"Coverage: {example_row.get(_cov_col, '?'):.2f}")
-            print("Tokens (first 30):", tokens[:30])
-
-            scores_map: dict[str, np.ndarray] = {}
+        for _n, example_id in enumerate(_ids):
+            row = subsample.loc[example_id]
+            print(f"\n--- Example {_n + 1} (id={example_id}) ---")
+            print(f"Label: {row['label']}  |  coverage: {row['truncation_coverage']:.2f}")
             for expl_name in _EXPLAINER_ORDER:
-                if expl_name not in _attr_caches:
+                df_cache = _attr_caches.get(expl_name)
+                if df_cache is None:
                     continue
-                df_cache = _attr_caches[expl_name]
-                ex_rows = df_cache[df_cache["example_id"] == example_id]
+                ex_rows = df_cache[df_cache["example_id"] == example_id].sort_values("token_idx")
                 if ex_rows.empty:
                     continue
-                ex_rows = ex_rows.sort_values("token_idx")
+                toks = ex_rows["token_str"].tolist()
                 raw_scores = ex_rows["score"].to_numpy(dtype=float)
-                # Normalise to [0, 1]
                 s_min, s_max = raw_scores.min(), raw_scores.max()
-                if s_max > s_min:
-                    norm = (raw_scores - s_min) / (s_max - s_min)
-                else:
-                    norm = np.full_like(raw_scores, 0.5)
-                scores_map[expl_name] = norm
-
-            if scores_map:
-                display(render_token_heatmap(tokens, scores_map))
-            else:
-                print("  (no cached attributions found for this example_id)")
+                norm = (
+                    (raw_scores - s_min) / (s_max - s_min)
+                    if s_max > s_min
+                    else np.full_like(raw_scores, 0.5)
+                )
+                print(f"  {expl_name}:")
+                display(render_token_heatmap(toks[:60], {expl_name: norm[:60]}))
 
     except Exception as exc:
         print(f"Heatmap rendering failed: {exc}\nRun `just explain` to regenerate "
@@ -356,21 +368,22 @@ if not _skip_heatmaps:
 # over the 3 real-explainer pairs.  A p-value < 0.05 (post-correction) is bolded.
 
 # %%
-pairwise_data: dict = metrics_raw.get("pairwise", {})
+_bonf_alpha = metrics_raw.get("bonferroni_alpha", 0.05)
 
 if pairwise_data:
     _pw_rows = []
-    for pair_key, pair_metrics in pairwise_data.items():
-        _pw_row: dict[str, object] = {"Pair": pair_key}
-        for metric_key in ("comprehensiveness", "auprc"):
-            entry = pair_metrics.get(metric_key, {})
-            diff = entry.get("diff", float("nan"))
-            p_val = entry.get("p_bonferroni", float("nan"))
-            sig = "*" if (not np.isnan(p_val) and p_val < 0.05) else ""
-            _pw_row[metric_key] = f"{diff:+.3f}  p={p_val:.3f}{sig}"
-        _pw_rows.append(_pw_row)
+    for pair_key, entry in pairwise_data.items():
+        diff = entry.get("mean_diff", float("nan"))
+        p_val = entry.get("p_value", float("nan"))
+        sig = "*" if entry.get("significant") else ""
+        _pw_rows.append(
+            {
+                "Pair": pair_key,
+                "comprehensiveness diff": f"{diff:+.3f}  p={p_val:.3f}{sig}",
+            }
+        )
     df_pairwise = pd.DataFrame(_pw_rows).set_index("Pair")
-    print("\n=== Pairwise significance (* = Bonferroni p < 0.05) ===")
+    print(f"\n=== Pairwise comprehensiveness (* = Bonferroni p < {_bonf_alpha:.4f}) ===")
     print(df_pairwise.to_string())
     display(df_pairwise)
 else:
@@ -379,34 +392,26 @@ else:
 # %% [markdown]
 # ## 5. Faithfulness vs. plausibility: discussion
 #
-# _(This section will be completed once the reproduced run has produced `metrics.json`.
-# The framing below sets out what the numbers should speak to.)_
+# **Faithfulness and plausibility do not coincide here.** On this RoBERTa-base classifier
+# (test accuracy 0.925), **Integrated Gradients is the only faithful explainer**:
+# comprehensiveness 0.52 and AOPC 0.34, versus ~0.02–0.06 for Gradient×Input, LIME, and
+# even the random baseline. IG's advantage is significant under a paired bootstrap with
+# Bonferroni correction (p < 0.001 vs. both). Gradient×Input and LIME are statistically
+# indistinguishable from random attribution on faithfulness.
 #
-# ### Anticipated structure of the scatter
-#
-# The 2D faithfulness–plausibility space can be partitioned into four quadrants:
+# On **plausibility**, all four methods cluster in a narrow band just above the random
+# floor (AUPRC 0.30–0.33), and the most *faithful* method (IG) is not the most *plausible*
+# (Gradient×Input edges plausibility). The "faithful **and** plausible" quadrant stays
+# empty — reproducing DeYoung et al. (2020) that the two are distinct axes.
 #
 # | | Low plausibility | High plausibility |
 # |---|---|---|
-# | **High faithfulness** | Model-faithful, human-opaque | Both faithful and plausible |
-# | **Low faithfulness** | Neither | Human-plausible but not model-faithful |
+# | **High faithfulness** | ← Integrated Gradients sits here | _(empty)_ |
+# | **Low faithfulness** | random baseline | Gradient×Input, LIME (barely above floor) |
 #
-# The key empirical question is whether the faithful quadrant and the plausible quadrant
-# overlap — that is, whether the explanations that best reflect the model's internal
-# computation are also the ones that align with human reading of the review.
-#
-# ### Interpretation template
-#
-# - If **Gradient×Input** lands in the top-right quadrant: gradient-based attribution is
-#   doing what the ERASER paper hoped — it is both faithful (erasure tests degrade the
-#   model's confidence when the right tokens are removed) and plausible (it agrees with
-#   human annotators about what counts as a rationale).
-# - If **LIME** lands high on plausibility but low on faithfulness: the surrogate model
-#   captures surface-level lexical cues that humans would pick, but does not accurately
-#   track the fine-tuned model's non-linear computation.
-# - If the **random baseline** is non-trivially close to any real explainer on either
-#   axis: that axis is not reliably measured on this dataset and model combination, and
-#   the explainer should not be given credit for that dimension.
+# The plausibility numbers are tempered by truncation (mean coverage ~0.54; see §8 of
+# `REPORT.md`); faithfulness is computed entirely on the model-visible sequence and is not
+# affected in the same way.
 #
 # ### Relationship to the limitations
 #

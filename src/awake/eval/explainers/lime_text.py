@@ -18,12 +18,15 @@ class LimeExplainer:
 
     name = "lime"
 
-    def __init__(self, model, tokenizer, device: str = "cpu", num_samples: int = 1000) -> None:
-        """Store model/tokenizer, device, and the LIME sample budget."""
+    def __init__(
+        self, model, tokenizer, device: str = "cpu", num_samples: int = 1000, batch_size: int = 64
+    ) -> None:
+        """Store model/tokenizer, device, the LIME sample budget, and batch size."""
         self.model = model.to(device).eval()
         self.tokenizer = tokenizer
         self.device = device
         self.num_samples = num_samples
+        self._batch_size = batch_size
         self.explainer = LimeTextExplainer(class_names=["neg", "pos"], bow=False)
 
     def _predict_proba(self, texts: list[str]) -> np.ndarray:
@@ -35,16 +38,22 @@ class LimeExplainer:
         Returns:
             A float32 array of shape (len(texts), n_classes).
         """
-        enc = self.tokenizer(
-            texts,
-            truncation=True,
-            max_length=512,
-            padding=True,
-            return_tensors="pt",
-        ).to(self.device)
-        with torch.no_grad():
-            logits = self.model(**enc).logits
-        return torch.softmax(logits, dim=-1).cpu().numpy()
+        # LIME passes all perturbations at once (num_samples can be ~1000); run in
+        # mini-batches so a large request does not exhaust GPU memory.
+        out = []
+        for start in range(0, len(texts), self._batch_size):
+            chunk = texts[start : start + self._batch_size]
+            enc = self.tokenizer(
+                chunk,
+                truncation=True,
+                max_length=512,
+                padding=True,
+                return_tensors="pt",
+            ).to(self.device)
+            with torch.no_grad():
+                logits = self.model(**enc).logits
+            out.append(torch.softmax(logits, dim=-1).cpu().numpy())
+        return np.concatenate(out, axis=0)
 
     def attribute(self, example: dict) -> TokenAttribution:
         """Run LIME and map per-word weights back to word order.
