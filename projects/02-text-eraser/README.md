@@ -5,7 +5,14 @@ disagree about which tokens drove a fine-tuned sentiment classifier's decision, 
 explanations are *faithful* (reflect what the model actually used) and which are merely
 *plausible* (agree with human rationales)?  Do the two properties coincide?
 
-**Answer.** _Pending the reproduced run — see `metrics.json` once `just eval` has completed._
+**Answer.** **They don't coincide.** On a RoBERTa-base classifier (test accuracy 0.925),
+**Integrated Gradients is the only faithful explainer** — comprehensiveness 0.52 and AOPC
+0.34, vs. ~0.02–0.06 for Gradient×Input, LIME, and even the random baseline (IG's lead is
+significant, paired bootstrap p < 0.001). Yet on **plausibility** all four methods barely
+clear the random floor (AUPRC 0.30–0.33), and IG is *not* the most plausible. The
+"faithful **and** plausible" quadrant stays empty — confident saliency maps (Gradient×Input,
+LIME) can be no more faithful than random. See [`REPORT.md`](REPORT.md) and
+[`metrics.json`](metrics.json).
 
 **Why it matters.** Confident-looking token-attribution explanations are easy to produce
 and easy to trust by default.  The ERASER benchmark supplies human-annotated rationales
@@ -15,20 +22,21 @@ do humans agree these are the right tokens?).  An explanation that scores high o
 plausibility but low on faithfulness offers an appealing narrative that does not accurately
 represent the model's computation.
 
-<!-- hero figure goes here once the run is complete -->
-<!-- ![hero](assets/faithfulness_plausibility.png) -->
+![hero](assets/faithfulness_plausibility.png)
 
 ## Method
 
-Fine-tune `microsoft/deberta-v3-base` (binary sentiment head) on the ERASER Movies
-dataset.  For each prediction in a stratified test subsample (~200 examples), run four
-explainers plus a random baseline:
+Fine-tune `roberta-base` (binary sentiment head) on the ERASER Movies dataset. (The spec
+named `microsoft/deberta-v3-base`, but DeBERTa-v3 diverges to NaN under this environment's
+transformers/torch/CUDA stack — a library bug; RoBERTa-base trains cleanly and nothing in
+the method is DeBERTa-specific. See ADR 002 / `REPORT.md §3`.) For each prediction across
+the test split (199 examples), run four explainers plus a random baseline:
 
 | Explainer | Role |
 |---|---|
 | LIME | Surrogate-model attribution (whitespace-level) |
 | Integrated Gradients | Gradient-based; axiomatic attribution |
-| Gradient×Input | Gradient × embedding norm per token (replaces attention rollout; valid on DeBERTa's disentangled attention) |
+| Gradient×Input | Gradient × input embedding per token (replaces attention rollout) |
 | SHAP PartitionExplainer | Shapley-value attribution (optional extra `[explain-shap]`) |
 | Random baseline | Uniform random scores — the floor reference |
 
@@ -44,8 +52,9 @@ the real-explainer pairs.
 
 **512-subword truncation contract.** Reviews are tokenized once and frozen; all erasure,
 plausibility, and attribution operate on this frozen visible sequence.  Gold rationale
-masks are clipped to the visible window.  Per-example `truncation_coverage` is recorded;
-the headline plausibility number uses the high-coverage stratum (`coverage >= 0.8`).
+masks are clipped to the visible window.  Per-example `truncation_coverage` is recorded
+(mean ~0.54 on this run; reviews average ~795 words vs. the 512-subword window) and
+carried as a diagnostic and a stated limitation.
 
 See [`REPORT.md`](REPORT.md) for the full methodology and limitations.
 
@@ -60,7 +69,7 @@ just setup
 # Download and prepare the ERASER Movies data (nothing committed):
 just data && just prepare
 
-# Fine-tune DeBERTa-v3-base:
+# Fine-tune the classifier (roberta-base):
 just train
 
 # Run explainers (add [explain-shap] extra first if you want PartitionSHAP):

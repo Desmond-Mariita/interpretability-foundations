@@ -205,11 +205,40 @@ reproducibility issue.
 
 ---
 
+## Decision 5 — Classifier model: RoBERTa-base instead of DeBERTa-v3-base
+
+### Context
+
+The spec named `microsoft/deberta-v3-base`. On this environment's stack
+(transformers 5.9.0 / torch 2.12.0+cu130 / CUDA 13.0), fine-tuning DeBERTa-v3 diverges to
+NaN: loss is finite at step 1 (~0.69) and becomes NaN within ~50 steps; a fresh model
+NaNs after a single gradient-clipped optimiser step at lr 1e-5 and 2e-5 with warmup. This
+is a numerical bug in DeBERTa-v3's disentangled attention under this bleeding-edge stack,
+not a hyperparameter or pipeline issue — a standard-attention encoder (distilbert/roberta)
+trains cleanly in the same environment.
+
+### Decision
+
+Use `roberta-base`: standard attention (no NaN), trains cleanly here (test accuracy 0.925),
+and exposes a fast tokenizer with `offsets`/`word_ids` (required by the prepare + explainer
+steps). Attention rollout was already dropped for Gradient×Input, so nothing in the method
+is DeBERTa-specific.
+
+### Consequences
+
+- Reported numbers are for RoBERTa-base. Metric definitions and the
+  faithfulness-vs-plausibility comparison are unchanged.
+- If the stack is later pinned to a DeBERTa-v3-compatible version, the only change needed
+  is `configs/model.yaml: model_name`.
+
+---
+
 ## Summary table
 
 | Decision | Chosen option | Key rationale |
 |---|---|---|
 | ERASER data access | Code-only download + sha256 | Keeps history clean; no credentialing required |
 | Truncation | Freeze visible sequence at prepare time | Prevents tail-leakage in faithfulness metrics |
-| Erasure | `[MASK]`-replacement, preserving positions | Avoids OOD positional embeddings on DeBERTa |
+| Erasure | `[MASK]`-replacement, preserving positions | Avoids OOD positional embeddings |
 | `shap` dependency | Optional extra `[explain-shap]`, `numba>=0.59` | Python 3.11 wheel availability |
+| Classifier model | `roberta-base` (not deberta-v3-base) | DeBERTa-v3 NaNs under this transformers/torch/CUDA stack |

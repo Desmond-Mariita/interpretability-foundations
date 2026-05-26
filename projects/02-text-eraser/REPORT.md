@@ -2,7 +2,7 @@
 
 **Author:** Desmond Mariita.
 **Dataset:** ERASER Movies (publicly available; downloaded via `scripts/00_fetch_data.py`).
-**Status:** pipeline complete, end-to-end run pending.
+**Status:** end-to-end run complete on RoBERTa-base (see §3 for the model note).
 
 ---
 
@@ -48,10 +48,19 @@ the repository (see ADR 002).
 
 ## 3. Model
 
-**Architecture.** `microsoft/deberta-v3-base` fine-tuned with a binary classification
-head via the Hugging Face `Trainer`.  Single RTX 3090; seeds via
-`awake.utils.seed_everything`.  The checkpoint SHA-256 is logged to `metrics.json` and
-used to invalidate stale attribution caches at inference time.
+**Architecture.** `roberta-base`, fine-tuned with a binary classification head (AdamW,
+linear warmup, gradient clipping). Single RTX 3090; seeds via
+`awake.utils.seed_everything`.  The checkpoint SHA-256 is logged and used to invalidate
+stale attribution caches at inference time. Test accuracy 0.925, macro-F1 0.925.
+
+> **Model note.** The spec named `microsoft/deberta-v3-base`. DeBERTa-v3's disentangled
+> attention diverges to NaN under this environment's stack (transformers 5.9 / torch 2.12 /
+> CUDA 13) after a single finite, gradient-clipped optimiser step — an external library bug,
+> reproduced at lr 1e-5 and 2e-5 with warmup and clipping. RoBERTa-base uses standard
+> attention, fine-tunes cleanly here, and keeps a fast tokenizer with offsets/word_ids
+> (required by the prepare and explainer steps). Dropping attention rollout (already done
+> for DeBERTa's disentangled attention) means nothing in the method is DeBERTa-specific.
+> See ADR 002.
 
 **Truncation contract (the central correctness decision).**
 ERASER Movies reviews average approximately 770 whitespace tokens; DeBERTa-v3-base caps
@@ -68,14 +77,16 @@ established once at prepare time:
   plausibility computation; tokens in the tail of a truncated review are simply absent
   from evaluation.
 - `truncation_coverage` = (gold rationale tokens surviving truncation) ÷ (total gold
-  rationale tokens in the full review) is recorded per example.  Plausibility is reported
-  on the full eval subsample and on the **high-coverage stratum** (`coverage >= 0.8`).
-  The headline number uses the high-coverage stratum to avoid length-correlated bias.
+  rationale tokens in the full review) is recorded per example. On this run the mean
+  coverage is **~0.54** (reviews average ~795 whitespace tokens vs. the 512-subword
+  window), and only ~22% of test examples reach `coverage >= 0.8`. The subsample is drawn
+  stratified by label and coverage stratum; plausibility in this release is reported over
+  the full test split, with coverage carried as a diagnostic and a stated limitation
+  (a coverage-gated headline is left as a v1.1 follow-up — see §8).
 
-**Evaluation subset.** Approximately 200 test examples, stratified by label and by
-coverage stratum, configurable in `configs/data.yaml`.  Faithfulness uses the original
-**predicted class j** (not the gold label) regardless of correctness; a correct-only
-secondary cut is reported in `metrics.json`.
+**Evaluation subset.** The full 199-example test split (subsample size 200 ≥ test size),
+configurable in `configs/data.yaml`.  Faithfulness uses the original **predicted class j**
+(not the gold label) regardless of correctness.
 
 ## 4. Metric definitions
 
@@ -186,61 +197,64 @@ since the extra is not installed in the CI environment; it is exercised only by 
 
 ## 6. Results
 
-_(Populated from the reproduced run; see `metrics.json`.)_
+Run on the full 199-example ERASER Movies test split (all numbers from `metrics.json`).
+Comprehensiveness and AOPC: higher is more faithful. Sufficiency: **lower** is more
+faithful (keeping only the rationale should preserve the prediction). Token-F1 and AUPRC:
+higher is more plausible.
 
 ### 6.1 Headline metrics
 
-| Explainer | Comp. | Suff. | AOPC | Token F1 | AUPRC |
+| Explainer | Comp. ↑ | Suff. ↓ | AOPC ↑ | Token F1 ↑ | AUPRC ↑ |
 |---|---|---|---|---|---|
-| LIME | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ |
-| Integrated Gradients | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ |
-| Gradient×Input | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ |
-| SHAP PartitionExplainer | _(optional)_ | _(optional)_ | _(optional)_ | _(optional)_ | _(optional)_ |
-| Random baseline | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ | _(see metrics.json)_ |
+| Integrated Gradients | **+0.520** | **+0.016** | **+0.340** | 0.211 | 0.327 |
+| Gradient×Input | +0.027 | +0.354 | +0.033 | **0.225** | **0.333** |
+| LIME | +0.015 | +0.346 | +0.037 | 0.197 | 0.321 |
+| Random baseline | +0.056 | +0.323 | +0.047 | 0.181 | 0.302 |
+| SHAP PartitionExplainer | _(optional extra; not in this run)_ | | | | |
 
-Bootstrap 95% CIs and pairwise Bonferroni-corrected significance tests are in
-`metrics.json` under `"pairwise"`.
+Bootstrap 95% CIs (2000 resamples) and pairwise Bonferroni-corrected significance tests
+are in `metrics.json`. On comprehensiveness, Integrated Gradients beats both Gradient×Input
+and LIME (paired bootstrap p < 0.001, Bonferroni α = 0.0167); Gradient×Input vs. LIME is
+not significant (p = 0.41).
 
 ### 6.2 Classifier diagnostics
 
-_(Populated from the reproduced run; see `metrics.json` under `"classifier"`.)_
-
-Reported: test accuracy, macro-F1, calibration ECE.  If ECE > 0.1, temperature scaling
-is applied before all erasure-based metrics (recorded in `metrics.json`); this ensures
-that comprehensiveness and sufficiency reflect genuine probability mass shifts rather than
-miscalibration artefacts.
+Test accuracy **0.925**, macro-F1 **0.925**, calibration **ECE 0.061** on 199 stays
+(positive-class rate 0.497). ECE < 0.10, so no temperature scaling was applied; the
+erasure-based metrics reflect genuine probability-mass shifts rather than miscalibration.
 
 ### 6.3 Hero figure
 
 ![faithfulness vs. plausibility scatter](assets/faithfulness_plausibility.png)
 
-_(Figure populated from the reproduced run; see `scripts/30_eval.py`.)_
+Integrated Gradients sits far to the right (faithful); Gradient×Input, LIME, and the random
+baseline cluster at near-zero faithfulness. The plausibility axis spans a narrow band
+(0.30–0.33 AUPRC) for all methods.
 
 ## 7. Discussion
 
-_(Populated from the reproduced run; see `metrics.json` and the hero scatter.)_
+**Faithfulness and plausibility do not coincide here, and the gap is stark.** Integrated
+Gradients is the only method that is meaningfully faithful — removing its top-ranked tokens
+collapses the predicted-class probability (comprehensiveness 0.52; AOPC 0.34) and the
+rationale alone nearly preserves the prediction (sufficiency 0.016). Gradient×Input and LIME
+are **statistically indistinguishable from random attribution on faithfulness** (comprehensiveness
+0.03 and 0.02 vs. the random floor's 0.06) — a sharp reminder that confident-looking saliency
+maps can carry no signal about what the model actually used. The IG advantage is significant
+under a paired bootstrap with Bonferroni correction.
 
-The 2D faithfulness–plausibility space partitions into four quadrants.  The key empirical
-question is whether a single explainer occupies the top-right quadrant — high faithfulness
-**and** high plausibility — or whether the two properties trade off.
+On **plausibility**, all four methods land in a narrow 0.30–0.33 AUPRC band only marginally
+above the random floor (0.30). So the explainer that best matches the model (IG) is *not* the
+one that best matches human rationales (Gradient×Input edges plausibility); the top-right
+"faithful **and** plausible" quadrant stays empty. This reproduces the DeYoung et al. (2020)
+finding — faithfulness and plausibility are distinct axes — on a single fine-tuned RoBERTa
+classifier under a controlled truncation + mask-replacement protocol.
 
-- A **top-right occupant** would suggest that, for this model and dataset, the computation
-  the model performs is interpretable in terms that humans recognise as rationale.
-- **High plausibility / low faithfulness** would suggest that the explainer captures
-  surface lexical cues (sentiment-laden words) that humans agree are rationale-like, but
-  that the model uses them differently — for example weighting context and negation in
-  ways the surrogate cannot follow.
-- **High faithfulness / low plausibility** would suggest that the model relies on tokens
-  that humans did not mark as rationale — structural or contextual signals invisible in a
-  human reading of the text.
-- The **random baseline** in the bottom-left corner makes both axes meaningful: an
-  explainer that does not exceed the random floor on a given axis is providing no signal
-  on that dimension.
-
-DeYoung et al. (2020) found, across multiple NLP tasks, that faithfulness and plausibility
-do not reliably coincide.  This project tests whether that finding holds for a single
-fine-tuned DeBERTa model under the controlled truncation and mask-replacement protocol
-described above.
+Two caveats temper the plausibility numbers specifically (see §8): mean truncation coverage is
+only ~0.54 (movie reviews average ~795 whitespace tokens vs. the 512-subword window), so a
+large fraction of human rationale falls outside the model's input; and the low absolute
+plausibility partly reflects that the gold rationales are short, sparse spans. The
+faithfulness numbers are unaffected by truncation in the same way, since they are computed
+entirely on the model-visible sequence.
 
 ## 8. Limitations
 
