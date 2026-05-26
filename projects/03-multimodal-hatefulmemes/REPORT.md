@@ -2,7 +2,7 @@
 
 **Author:** Desmond Mariita.
 **Dataset:** Meta Hateful Memes phase-1 (Meta HM Dataset Agreement; gated, code-only).
-**Status:** pipeline implemented; end-to-end run pending (metrics populated once completed).
+**Status:** complete — end-to-end run on CLIP-ViT-L/14 (see §5; metrics in `metrics.json`).
 
 ---
 

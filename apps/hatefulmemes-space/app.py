@@ -114,7 +114,7 @@ class _RealBundle:
         with torch.no_grad():
             pix = self._clip_proc(images=image, return_tensors="pt").to(self._device)
             img_out = self._clip_model.get_image_features(**pix)
-            if not isinstance(img_out, type(img_out)) or hasattr(img_out, "pooler_output"):
+            if hasattr(img_out, "pooler_output"):
                 img_e = img_out.pooler_output.squeeze(0).cpu().numpy()
             else:
                 img_e = img_out.squeeze(0).cpu().numpy()

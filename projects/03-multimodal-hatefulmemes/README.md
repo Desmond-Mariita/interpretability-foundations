@@ -49,7 +49,7 @@ signed image share `s = φ_image / (|φ_image| + |φ_text| + ε)`.
 
 The HuggingFace Space loads the **CLIP-ViT-B/32** encoder and the **LightGBM B/32 head
 from the user's HF Model Hub** (via `hf_hub_download`). Its interventional baseline is a
-**generic, non-Hateful-Memes background** (~50 CC0 / public-domain images with generic
+**generic, non-Hateful-Memes background** (~50 random-noise images with generic
 captions, pre-encoded to `apps/hatefulmemes-space/generic_background.npz`). No HM-derived
 artifact is committed or hosted anywhere.
 

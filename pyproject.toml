@@ -83,7 +83,7 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "projects"]
+testpaths = ["tests", "projects", "apps"]
 python_files = ["test_*.py"]
 markers = [
   "unit: fast pure-function tests with no external resources",
