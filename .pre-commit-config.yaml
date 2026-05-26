@@ -28,11 +28,6 @@ repos:
         files: ^src/awake/
         additional_dependencies: ["numpy", "pandas-stubs"]
 
-  - repo: https://github.com/kynan/nbstripout
-    rev: 0.7.1
-    hooks:
-      - id: nbstripout
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4
     hooks:

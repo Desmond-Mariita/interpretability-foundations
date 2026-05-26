@@ -25,12 +25,13 @@ eval *FLAGS:
 
 pipeline: data prepare
 
+# Renders the notebook with its executed outputs kept (committed .ipynb shows results,
+# so it renders with figures/tables on GitHub); the .html is the standalone view.
 notebook NAME="01-explainer-comparison":
     cd "{{project_root}}/notebooks" && \
         P2_PROJECT_ROOT="{{project_root}}" uv run jupytext --to ipynb {{NAME}}.py && \
         P2_PROJECT_ROOT="{{project_root}}" uv run jupyter nbconvert --to notebook --execute --inplace {{NAME}}.ipynb && \
-        uv run jupyter nbconvert --to html {{NAME}}.ipynb && \
-        uv run nbstripout {{NAME}}.ipynb
+        uv run jupyter nbconvert --to html {{NAME}}.ipynb
 
 test:
     cd "{{repo_root}}" && uv run pytest projects/02-text-eraser/tests -m "unit or smoke" --no-cov
