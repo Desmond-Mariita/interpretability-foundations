@@ -125,3 +125,35 @@ def accuracy(pred: list[int | None], gold: list[int]) -> float:
     if not pred:
         return 0.0
     return sum(p is not None and p == g for p, g in zip(pred, gold)) / len(pred)
+
+
+def consistency_rate(
+    original: list[int | None],
+    ablated: list[int | None],
+    paired_only: bool = False,
+) -> float:
+    """Rate at which the ablated answer matches the original answer.
+
+    Args:
+        original: Per-item original parsed indices.
+        ablated: Per-item ablated parsed indices.
+        paired_only: If ``False`` (primary policy), a pair is consistent iff both
+            parse AND are equal, and the denominator is all items (unparseable on
+            either side counts as inconsistent). If ``True`` (documented sensitivity),
+            pairs with ``None`` on either side are dropped and the denominator is the
+            pairs where both sides parsed.
+
+    Returns:
+        Consistency share in [0, 1]; ``0.0`` when the denominator is empty.
+
+    Raises:
+        ValueError: If the two lists differ in length.
+    """
+    if len(original) != len(ablated):
+        raise ValueError("original and ablated must have equal length")
+    pairs = list(zip(original, ablated))
+    if paired_only:
+        pairs = [(o, a) for o, a in pairs if o is not None and a is not None]
+    if not pairs:
+        return 0.0
+    return sum(o is not None and a is not None and o == a for o, a in pairs) / len(pairs)

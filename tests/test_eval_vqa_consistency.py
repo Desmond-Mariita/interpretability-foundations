@@ -4,6 +4,7 @@ import pytest
 
 from awake.eval.vqa_consistency import (
     accuracy,
+    consistency_rate,
     explanation_leaks_answer,
     extract_choice,
     normalize_text,
@@ -88,3 +89,27 @@ def test_accuracy_none_counts_as_wrong():
 def test_accuracy_length_mismatch_raises():
     with pytest.raises(ValueError):
         accuracy([0, 1], [0])
+
+
+@pytest.mark.unit
+def test_consistency_rate_primary_none_either_side_is_inconsistent():
+    orig = [0, 1, 2, 3]
+    abl = [0, 1, None, 0]  # item0,1 consistent; item2 None; item3 differs
+    assert consistency_rate(orig, abl) == 0.5  # 2 of 4
+
+
+@pytest.mark.unit
+def test_consistency_rate_paired_only_drops_unparseable_pairs():
+    orig = [0, 1, None, 3]
+    abl = [0, 1, 2, None]  # paired-parsed pairs: (0,0)(1,1) only -> both consistent
+    assert consistency_rate(orig, abl, paired_only=True) == 1.0
+    # primary: 2 consistent of 4
+    assert consistency_rate(orig, abl) == 0.5
+
+
+@pytest.mark.unit
+def test_consistency_rate_empty_and_mismatch():
+    assert consistency_rate([], []) == 0.0
+    assert consistency_rate([0], [0], paired_only=True) == 1.0
+    with pytest.raises(ValueError):
+        consistency_rate([0, 1], [0])
