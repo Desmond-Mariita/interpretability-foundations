@@ -17,6 +17,11 @@ dependencies = [
   "interpret-core>=0.6",
   "mlflow>=2.12",
   "pyyaml>=6.0",
+  "transformers>=4.44",
+  "torch>=2.2",
+  "datasets>=2.20",
+  "captum>=0.7",
+  "lime>=0.2.0.1",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +36,7 @@ dev = [
   "jupytext>=1.16",
   "nbconvert>=7.16",
 ]
+explain-shap = ["shap>=0.46", "numba>=0.59", "llvmlite>=0.42"]
 
 [build-system]
 requires = ["hatchling"]
