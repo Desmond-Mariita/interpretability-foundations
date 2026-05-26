@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from awake.eval.erasure import erase, top_k_mask
 
 
