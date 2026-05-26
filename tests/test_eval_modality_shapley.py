@@ -26,23 +26,23 @@ def _sum_value_fn(batch: np.ndarray) -> np.ndarray:
 
 @pytest.mark.unit
 def test_interventional_values_linear_closed_form():
-    img = np.array([1.0, 1.0])          # sum 2
-    txt = np.array([10.0, 10.0])        # sum 20
-    img_bg = np.array([[0.0, 0.0], [2.0, 2.0]])   # sums 0, 4 -> mean 2
-    txt_bg = np.array([[0.0, 0.0], [6.0, 6.0]])   # sums 0, 12 -> mean 6
-    v_empty, v_img, v_txt, v_ab = interventional_values(
-        img, txt, _sum_value_fn, img_bg, txt_bg
-    )
-    assert v_ab == pytest.approx(22.0)              # point score: 2 + 20, NOT averaged
-    assert v_img == pytest.approx(2.0 + 6.0)        # actual img + mean bg txt
-    assert v_txt == pytest.approx(2.0 + 20.0)       # mean bg img + actual txt
-    assert v_empty == pytest.approx(2.0 + 6.0)      # mean bg img + mean bg txt
+    img = np.array([1.0, 1.0])  # sum 2
+    txt = np.array([10.0, 10.0])  # sum 20
+    img_bg = np.array([[0.0, 0.0], [2.0, 2.0]])  # sums 0, 4 -> mean 2
+    txt_bg = np.array([[0.0, 0.0], [6.0, 6.0]])  # sums 0, 12 -> mean 6
+    v_empty, v_img, v_txt, v_ab = interventional_values(img, txt, _sum_value_fn, img_bg, txt_bg)
+    assert v_ab == pytest.approx(22.0)  # point score: 2 + 20, NOT averaged
+    assert v_img == pytest.approx(2.0 + 6.0)  # actual img + mean bg txt
+    assert v_txt == pytest.approx(2.0 + 20.0)  # mean bg img + actual txt
+    assert v_empty == pytest.approx(2.0 + 6.0)  # mean bg img + mean bg txt
 
 
 @pytest.mark.unit
 def test_modality_shapley_efficiency_end_to_end():
-    img = np.array([1.0, 1.0]); txt = np.array([10.0, 10.0])
-    img_bg = np.array([[0.0, 0.0], [2.0, 2.0]]); txt_bg = np.array([[0.0, 0.0], [6.0, 6.0]])
+    img = np.array([1.0, 1.0])
+    txt = np.array([10.0, 10.0])
+    img_bg = np.array([[0.0, 0.0], [2.0, 2.0]])
+    txt_bg = np.array([[0.0, 0.0], [6.0, 6.0]])
     out = modality_shapley(img, txt, _sum_value_fn, img_bg, txt_bg)
     v_empty, _, _, v_ab = interventional_values(img, txt, _sum_value_fn, img_bg, txt_bg)
     assert set(out) == {"image", "text"}

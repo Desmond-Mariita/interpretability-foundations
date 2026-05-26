@@ -90,7 +90,7 @@ markers = [
   "smoke: end-to-end plumbing tests on tiny synthetic data",
   "slow: tests that exceed the 8-minute CI budget; excluded from CI",
 ]
-addopts = "-ra --strict-markers --cov=awake --cov-report=term-missing --cov-fail-under=90"
+addopts = "-ra --strict-markers --import-mode=importlib --cov=awake --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.run]
 branch = true

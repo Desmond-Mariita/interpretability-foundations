@@ -14,8 +14,13 @@ def fit_heads(img: np.ndarray, txt: np.ndarray, y: np.ndarray, lgbm_params: dict
     pos = max(int((y == 1).sum()), 1)
     neg = int((y == 0).sum())
     spw = neg / pos
-    params = {"objective": "binary", "random_state": seed, "scale_pos_weight": spw,
-              "verbosity": -1, **lgbm_params}
+    params = {
+        "objective": "binary",
+        "random_state": seed,
+        "scale_pos_weight": spw,
+        "verbosity": -1,
+        **lgbm_params,
+    }
     feats = {"fused": np.concatenate([img, txt], axis=1), "image": img, "text": txt}
     heads = {}
     for name, X in feats.items():
@@ -51,9 +56,13 @@ def main() -> None:
     ensure_dirs(mdir)
     for name, booster in heads.items():
         booster.save_model(str(mdir / f"{name}.txt"))
-    meta = {"clip_model_id": cfg["clip_model_id"], "img_dim": int(img.shape[1]),
-            "txt_dim": int(txt.shape[1]), "class_map": {"benign": 0, "hateful": 1},
-            "lightgbm_version": lgb.__version__}
+    meta = {
+        "clip_model_id": cfg["clip_model_id"],
+        "img_dim": int(img.shape[1]),
+        "txt_dim": int(txt.shape[1]),
+        "class_map": {"benign": 0, "hateful": 1},
+        "lightgbm_version": lgb.__version__,
+    }
     (mdir / "head_meta.json").write_text(json.dumps(meta, indent=2))
     print(f"saved heads + head_meta.json -> {mdir}")
 

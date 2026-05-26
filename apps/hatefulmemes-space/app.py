@@ -114,9 +114,9 @@ class _RealBundle:
             else:
                 img_e = img_out.squeeze(0).cpu().numpy()
 
-            tok = self._clip_proc(
-                text=text, return_tensors="pt", padding=True, truncation=True
-            ).to(self._device)
+            tok = self._clip_proc(text=text, return_tensors="pt", padding=True, truncation=True).to(
+                self._device
+            )
             txt_out = self._clip_model.get_text_features(**tok)
             if hasattr(txt_out, "pooler_output"):
                 txt_e = txt_out.pooler_output.squeeze(0).cpu().numpy()

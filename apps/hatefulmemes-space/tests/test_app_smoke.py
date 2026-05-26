@@ -1,6 +1,8 @@
+"""Smoke test for the Hateful Memes Gradio app (app.py) using a stub model bundle."""
+
 import importlib
-import sys
 import pathlib
+import sys
 
 import numpy as np
 import pytest
@@ -12,6 +14,8 @@ app = importlib.import_module("app")
 
 @pytest.mark.smoke
 def test_predict_with_stub_loader(monkeypatch):
+    """Verify that app.predict returns confidence and modality-bar dicts with the expected keys when using a stub bundle."""
+
     class _Bundle:
         img_bg = np.zeros((4, 8))
         txt_bg = np.zeros((4, 8))
@@ -26,6 +30,6 @@ def test_predict_with_stub_loader(monkeypatch):
             return 1 / (1 + np.exp(-feats.sum(axis=1)))
 
     monkeypatch.setattr(app, "_load", lambda: _Bundle())
-    label, conf, bars = app.predict(Image.new("RGB", (8, 8)), "some caption text")[:3]
+    _label, conf, bars = app.predict(Image.new("RGB", (8, 8)), "some caption text")[:3]
     assert set(conf) == {"benign", "hateful"}
     assert set(bars) == {"image", "text"}

@@ -6,10 +6,10 @@ import torch
 
 from awake.eval.explainers.random_baseline import RandomExplainer
 
-
 # ---------------------------------------------------------------------------
 # Unit tests for GradientXInputExplainer (mocked model + tokenizer)
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_tokenizer_and_encoding(n_tokens: int = 5):
     """Return a mock tokenizer that produces a fixed encoding of *n_tokens* tokens."""
@@ -19,7 +19,7 @@ def _make_mock_tokenizer_and_encoding(n_tokens: int = 5):
     enc.pop.return_value = torch.zeros(1, n_tokens, 2, dtype=torch.long)
     enc.word_ids.return_value = [None] + [0] * (n_tokens - 2) + [None]
     enc.__getitem__ = lambda self, key: torch.ones(1, n_tokens, dtype=torch.long)
-    # Support .to(device) – return self
+    # Support .to(device) - return self
     enc.to = lambda device: enc
     tokenizer = MagicMock()
     tokenizer.return_value = enc
@@ -35,9 +35,11 @@ def _make_mock_model(n_tokens: int = 5, n_classes: int = 2):
 
     # Embedding layer returns a leaf tensor so .grad works
     emb_layer = MagicMock()
+
     def fake_call(ids):
         t = torch.zeros(1, n_tokens, 8, requires_grad=False)
         return t.clone().detach()
+
     emb_layer.side_effect = fake_call
     model.get_input_embeddings.return_value = emb_layer
 
@@ -96,7 +98,7 @@ def test_gradient_x_input_unit_predicted_class_none():
     from awake.eval.explainers.gradient_x_input import GradientXInputExplainer
 
     n_tokens, n_classes = 5, 2
-    tokenizer, enc = _make_mock_tokenizer_and_encoding(n_tokens)
+    tokenizer, _enc = _make_mock_tokenizer_and_encoding(n_tokens)
     model, emb_layer, _ = _make_gxi_model_with_grad(n_tokens, n_classes)
 
     # The embedding layer must return a leaf tensor (detached, no grad_fn) that
@@ -117,7 +119,7 @@ def test_gradient_x_input_unit_predicted_class_provided():
     from awake.eval.explainers.gradient_x_input import GradientXInputExplainer
 
     n_tokens, n_classes = 5, 2
-    tokenizer, enc = _make_mock_tokenizer_and_encoding(n_tokens)
+    tokenizer, _enc = _make_mock_tokenizer_and_encoding(n_tokens)
     model, emb_layer, _ = _make_gxi_model_with_grad(n_tokens, n_classes)
 
     emb_layer.return_value = torch.zeros(1, n_tokens, 8)
@@ -134,13 +136,14 @@ def test_gradient_x_input_unit_predicted_class_provided():
 # Unit tests for IntegratedGradientsExplainer (mocked model + tokenizer)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 def test_integrated_gradients_unit_predicted_class_none():
     """IntegratedGradientsExplainer: predicted_class=None branch uses argmax."""
     from awake.eval.explainers.integrated_gradients import IntegratedGradientsExplainer
 
     n_tokens, n_classes = 4, 2
-    tokenizer, enc = _make_mock_tokenizer_and_encoding(n_tokens)
+    tokenizer, _enc = _make_mock_tokenizer_and_encoding(n_tokens)
     model = _make_mock_model(n_tokens, n_classes)
     # pad_token_id needed for baseline construction
     tokenizer.pad_token_id = 0
@@ -171,7 +174,7 @@ def test_integrated_gradients_unit_predicted_class_provided():
     from awake.eval.explainers.integrated_gradients import IntegratedGradientsExplainer
 
     n_tokens, n_classes = 4, 2
-    tokenizer, enc = _make_mock_tokenizer_and_encoding(n_tokens)
+    tokenizer, _enc = _make_mock_tokenizer_and_encoding(n_tokens)
     model = _make_mock_model(n_tokens, n_classes)
     tokenizer.pad_token_id = 0
 
@@ -196,6 +199,7 @@ def test_integrated_gradients_unit_predicted_class_provided():
 # Unit tests for LimeExplainer (mocked model + tokenizer)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.unit
 def test_lime_explainer_unit_predicted_class_none():
     """LimeExplainer: predicted_class=None branch uses argmax of probs."""
@@ -204,9 +208,7 @@ def test_lime_explainer_unit_predicted_class_none():
     model = _make_mock_model()
     tokenizer = MagicMock()
     tokenizer.return_value = MagicMock(
-        **{"to.return_value": MagicMock(
-            **{"__getitem__": lambda self, key: None}
-        )}
+        **{"to.return_value": MagicMock(**{"__getitem__": lambda self, key: None})}
     )
     # Patch _predict_proba to return canned probs to avoid the real tokenizer path
     with patch.object(LimeExplainer, "_predict_proba") as mock_pp:

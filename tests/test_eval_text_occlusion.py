@@ -1,4 +1,5 @@
 import pytest
+
 from awake.eval.text_occlusion import occlusion_importance
 
 
@@ -12,7 +13,7 @@ def test_occlusion_ranks_influential_token_first():
     tokens = ["the", "movie", "is", "bad"]
     out = occlusion_importance(tokens, _score_fn, top_k=2)
     assert out[0][0] == "bad"
-    assert out[0][1] == pytest.approx(1.0)   # removing "bad" drops score by 1
+    assert out[0][1] == pytest.approx(1.0)  # removing "bad" drops score by 1
     assert len(out) == 2
 
 

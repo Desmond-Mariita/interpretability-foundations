@@ -10,8 +10,15 @@ import pytest
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 _OWNED = {p.stem for p in SCRIPTS_DIR.glob("*.py") if not p.stem.startswith("__")}
 
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+# Ensure this project's scripts dir is first and stale sibling modules are
+# evicted immediately at conftest import time, so module-level importlib calls
+# in the test files pick up this project's versions even in a combined session.
+path = str(SCRIPTS_DIR)
+while path in sys.path:
+    sys.path.remove(path)
+sys.path.insert(0, path)
+for _name in _OWNED:
+    sys.modules.pop(_name, None)
 
 
 @pytest.fixture(autouse=True)

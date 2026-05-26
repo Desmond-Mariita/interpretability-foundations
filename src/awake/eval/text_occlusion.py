@@ -22,9 +22,6 @@ def occlusion_importance(
         truncated to ``top_k``; ``importance = score(all) - score(all without token)``.
     """
     base = score_fn(tokens)
-    scored = [
-        (tok, base - score_fn(tokens[:i] + tokens[i + 1 :]))
-        for i, tok in enumerate(tokens)
-    ]
+    scored = [(tok, base - score_fn(tokens[:i] + tokens[i + 1 :])) for i, tok in enumerate(tokens)]
     scored.sort(key=lambda pair: abs(pair[1]), reverse=True)
     return scored[:top_k]
