@@ -2,7 +2,12 @@
 
 import pytest
 
-from awake.eval.vqa_consistency import extract_choice, normalize_text
+from awake.eval.vqa_consistency import (
+    explanation_leaks_answer,
+    extract_choice,
+    normalize_text,
+    rationale_leaks_answer,
+)
 
 
 @pytest.mark.unit
@@ -41,3 +46,23 @@ def test_extract_choice_strict_letter_out_of_range_falls_through():
     choices = ["red car", "blue truck"]  # only A, B valid
     # 'Answer: D' is out of range -> not strict; no text match -> none
     assert extract_choice("Answer: D", choices) == (None, "none")
+
+
+@pytest.mark.unit
+def test_explanation_leaks_answer_substring_match_normalized():
+    assert explanation_leaks_answer("Because it is a RED car.", "red car") is True
+    assert explanation_leaks_answer("Because it is blue.", "red car") is False
+    assert explanation_leaks_answer("anything", "") is False  # empty choice never leaks
+
+
+@pytest.mark.unit
+def test_rationale_leaks_answer_any_rationale_matches():
+    assert rationale_leaks_answer(["it flies", "it is a red car"], "red car") is True
+    assert rationale_leaks_answer(["it flies", "it is blue"], "red car") is False
+    assert rationale_leaks_answer([], "red car") is False
+
+
+@pytest.mark.unit
+def test_leakage_does_not_match_bare_letter():
+    # a lone letter token must NOT cause a false leak (the choice TEXT is what matters)
+    assert explanation_leaks_answer("the answer is A", "red car") is False

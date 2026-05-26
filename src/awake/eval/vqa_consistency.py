@@ -56,3 +56,38 @@ def extract_choice(model_output: str, choices: list[str]) -> tuple[int | None, s
     if len(hits) == 1:
         return hits[0], "text"
     return None, "none"
+
+
+def explanation_leaks_answer(explanation: str, chosen_choice_text: str) -> bool:
+    """True iff the chosen choice's text appears verbatim (normalized) in the explanation.
+
+    Detects the direct leak path for the probe: a self-explanation that simply restates
+    the chosen answer. Matches the choice TEXT, never the bare letter.
+
+    Args:
+        explanation: The model's free-text explanation.
+        chosen_choice_text: The text of the choice the model selected.
+
+    Returns:
+        ``True`` if ``chosen_choice_text`` is non-empty and its normalized form is a
+        substring of the normalized explanation.
+    """
+    needle = normalize_text(chosen_choice_text)
+    if not needle:
+        return False
+    return needle in normalize_text(explanation)
+
+
+def rationale_leaks_answer(rationales: list[str], gold_choice_text: str) -> bool:
+    """True iff any human rationale contains the gold choice text (normalized).
+
+    Used to build the leakage-sensitivity split on A-OKVQA's ``rationales`` field.
+
+    Args:
+        rationales: The human-written rationales for an item.
+        gold_choice_text: The text of the gold (correct) choice.
+
+    Returns:
+        ``True`` if any rationale leaks the gold choice text.
+    """
+    return any(explanation_leaks_answer(r, gold_choice_text) for r in rationales)
