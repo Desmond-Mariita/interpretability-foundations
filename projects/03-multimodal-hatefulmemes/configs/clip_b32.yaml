@@ -1,0 +1,2 @@
+clip_model_id: "openai/clip-vit-base-patch32"
+embedding_subdir: "embeddings/b32"

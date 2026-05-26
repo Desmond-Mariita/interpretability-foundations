@@ -1,0 +1,41 @@
+set shell := ["bash", "-uc"]
+set dotenv-load := true
+project_root := justfile_directory()
+repo_root := justfile_directory() + "/../.."
+default_data_path := env_var_or_default("DATA_PATH", env_var("HOME") + "/.cache/hateful_memes")
+
+default:
+    @just --list
+
+data:
+    cd "{{project_root}}" && uv run python scripts/00_data.py --data-path "{{default_data_path}}"
+
+encode CONFIG="clip_l14":
+    cd "{{project_root}}" && uv run python scripts/01_encode.py --config {{CONFIG}}
+
+train CONFIG="clip_l14":
+    cd "{{project_root}}" && uv run python scripts/10_train.py --config {{CONFIG}} && \
+        uv run python scripts/15_background.py --config {{CONFIG}}
+
+eval CONFIG="clip_l14":
+    cd "{{project_root}}" && uv run python scripts/11_eval.py --config {{CONFIG}}
+
+attribute CONFIG="clip_l14":
+    cd "{{project_root}}" && uv run python scripts/20_attribute.py --config {{CONFIG}}
+
+pipeline CONFIG="clip_l14": data (encode CONFIG) (train CONFIG) (eval CONFIG) (attribute CONFIG)
+
+export-space-artifacts:
+    cd "{{project_root}}" && uv run python scripts/01_encode.py --config clip_b32 && \
+        uv run python scripts/10_train.py --config clip_b32 && \
+        uv run python scripts/15_background.py --config clip_b32 && \
+        echo "Upload outputs/models/b32/fused.txt + head_meta.json to your HF Model Hub repo (see REPORT)."
+
+notebook NAME="01-modality-attribution":
+    cd "{{project_root}}/notebooks" && \
+        P3_PROJECT_ROOT="{{project_root}}" uv run jupytext --to ipynb {{NAME}}.py && \
+        P3_PROJECT_ROOT="{{project_root}}" uv run jupyter nbconvert --to notebook --execute --inplace {{NAME}}.ipynb && \
+        uv run jupyter nbconvert --to html {{NAME}}.ipynb
+
+test:
+    cd "{{repo_root}}" && uv run pytest projects/03-multimodal-hatefulmemes/tests -m "unit or smoke" --no-cov
