@@ -172,28 +172,46 @@ clearly labelled.
 
 ## 5. Results
 
-_Results are pending the end-to-end run. All numbers below are placeholders to be
-populated from `metrics.json` and `assets/modality_attribution.png` once the pipeline
-completes._
+Run on the balanced 500-example dev split (frozen CLIP-ViT-L/14, all numbers from
+`metrics.json`).
 
 ### 5.1 Classifier metrics (dev, n = 500, balanced)
 
-| Head | AUROC | AUPRC | Accuracy |
+| Head | AUROC (95% CI) | AUPRC | Accuracy |
 |---|---|---|---|
-| Fused (CLIP-L/14) | _(populated from the reproduced run; see `metrics.json`)_ | | |
-| Image-only | | | |
-| Text-only | | | |
+| Fused (CLIP-L/14) | 0.711 [0.669, 0.756] | 0.672 | 0.606 |
+| Image-only | 0.692 [0.648, 0.736] | 0.691 | 0.622 |
+| Text-only | 0.575 [0.524, 0.626] | 0.566 | 0.548 |
 
-Bootstrap 95% CIs and paired fused−unimodal differences: see `metrics.json`.
+Text-only is barely above chance; image-only carries most of the signal; the fused head's
+edge over image-only (0.711 vs 0.692) sits well within the overlapping 95% CIs, so fusion
+is not clearly better than the image alone on this frozen-feature setup. (`metrics.json`
+also records a `paired_diff_test` over the probability arrays as a stand-in; the honest
+comparison is the overlapping AUROC CIs, not that test's p-value.)
 
 ### 5.2 Modality attribution (dev aggregate)
 
-_(populated from the reproduced run; see `metrics.json` and `assets/modality_attribution.png`)_
+Mean |φ| (raw-margin interventional Shapley, empirical train background, N=200):
+**image 0.842 vs text 0.675** — the fused decision leans on the image modality, consistent
+with the unimodal AUROCs. The signed image-share distribution
+(`assets/modality_attribution.png`) is centred near zero (share_mean −0.034) but with the
+image carrying the larger magnitude on most examples.
+
+![modality attribution](assets/modality_attribution.png)
 
 ## 6. Discussion
 
-_Full discussion pending the end-to-end run. The following framing will be filled in
-once results are available._
+On this frozen CLIP-L/14 + LightGBM setup, **the image modality carries the discriminative
+load**: image-only AUROC (0.692) is close to fused (0.711) while text-only (0.575) is barely
+above chance, and the modality Shapley assigns larger magnitude to the image (mean|φ| 0.84
+vs 0.68). This matches the well-documented difficulty of Hateful Memes for unimodal text and
+the modest gains of simple late fusion over a strong image encoder. The near-zero signed
+share_mean (−0.034) with image-dominant magnitudes means the two modalities frequently push
+in opposite directions on a given example while the image more often dominates — a pattern
+the per-example raw φ in `metrics.json` makes inspectable. Two honest caveats bound the
+reading: fusion's edge over image-only is within overlapping CIs (not a clear win on frozen
+features), and the interventional baseline forms off-manifold image+text pairs that a tree
+model scores at arbitrary leaves (§7). The framing below interprets the share axis.
 
 The signed image share `s` indicates whether the fused model is predominantly
 image-driven or text-driven across the dev set. Conditional breakdowns — by gold label

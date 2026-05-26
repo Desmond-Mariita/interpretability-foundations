@@ -3,7 +3,12 @@
 **Question.** When a fused image+text classifier calls a meme hateful or benign, how much
 of the signal came from the image modality and how much from the text modality?
 
-**Answer.** _(populated from the reproduced run; see `metrics.json`)_
+**Answer.** **Mostly the image.** On dev (500, balanced), a frozen CLIP-ViT-L/14 + LightGBM
+head reaches **AUROC 0.711** fused vs **0.692 image-only** and **0.575 text-only** — text
+alone is barely above chance, and fusion only marginally edges image-only (overlapping 95%
+CIs). The 2-player interventional modality Shapley agrees: mean|φ| is **image 0.84 vs text
+0.68**, i.e. the decision leans on the image. See [`metrics.json`](metrics.json) and the
+[hero figure](assets/modality_attribution.png).
 
 **Why it matters.** Multimodal classifiers blend image and text features in ways that are
 not easily inspected from the model's output alone. A modality-level attribution gives a

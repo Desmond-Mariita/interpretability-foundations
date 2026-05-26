@@ -32,7 +32,10 @@ All notable changes to this repository are documented here. Format follows
 - **Licence governance.** Meta HM Dataset Agreement §6.1/6.2: dataset and CLIP embeddings
   never committed; §2: trained head may be published.  No raw HM images or meme text in
   any committed artifact.  See ADR 003.
-- **Results.** _(populated from the reproduced run; see `projects/03-multimodal-hatefulmemes/metrics.json`)_
+- **Results.** Frozen CLIP-ViT-L/14 + LightGBM on dev (500, balanced): AUROC 0.711 fused,
+  0.692 image-only, 0.575 text-only — image carries the signal, text alone ~chance, fusion
+  within overlapping CIs of image-only. Modality Shapley mean|φ| image 0.84 vs text 0.68
+  (image-dominant). See `projects/03-multimodal-hatefulmemes/metrics.json`.
 - **Documentation.** `projects/03-multimodal-hatefulmemes/REPORT.md` (8-section
   methodology + metric definitions + limitations + references);
   `projects/03-multimodal-hatefulmemes/README.md` (question / method / reproduce /
