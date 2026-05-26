@@ -1,11 +1,14 @@
+import math
+
 import numpy as np
 import pytest
-from awake.eval.plausibility import aggregate_subwords_to_words
+
 from awake.eval.plausibility import (
+    aggregate_subwords_to_words,
     clip_gold_mask_to_window,
-    token_prf1_at_k,
     token_auprc,
     token_iou,
+    token_prf1_at_k,
 )
 
 
@@ -47,3 +50,26 @@ def test_token_iou_custom_metric():
     gold = np.array([0, 1, 0, 0], dtype=bool)
     # intersection=1, union=2 -> 0.5
     assert token_iou(pred, gold) == pytest.approx(0.5)
+
+
+@pytest.mark.unit
+def test_token_auprc_all_positive_gold_returns_nan():
+    word_scores = np.array([0.9, 0.8, 0.7])
+    gold = np.array([1, 1, 1])  # all positive -> degenerate -> NaN
+    assert math.isnan(token_auprc(word_scores, gold))
+
+
+@pytest.mark.unit
+def test_token_auprc_all_negative_gold_returns_nan():
+    word_scores = np.array([0.9, 0.8, 0.7])
+    gold = np.array([0, 0, 0])  # all negative -> degenerate -> NaN
+    assert math.isnan(token_auprc(word_scores, gold))
+
+
+@pytest.mark.unit
+def test_token_prf1_at_k_zero_k_returns_zeros():
+    word_scores = np.array([0.9, 0.8, 0.7])
+    gold = np.array([0, 1, 0])
+    p, r, f1 = token_prf1_at_k(word_scores, gold, k=0)
+    # no predictions -> precision undefined (0), recall 0, f1 0
+    assert (p, r, f1) == pytest.approx((0.0, 0.0, 0.0))

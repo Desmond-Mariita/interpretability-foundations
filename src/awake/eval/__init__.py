@@ -1,9 +1,31 @@
-"""Evaluation primitives.
+"""Shared interpretability evaluation utilities."""
 
-Modules ship reactively when projects need them:
+from awake.eval.attribution import Explainer, ModelAdapter, TokenAttribution
+from awake.eval.bootstrap import bootstrap_ci, paired_diff_test
+from awake.eval.erasure import erase, top_k_mask
+from awake.eval.faithfulness import aopc_comprehensiveness, comprehensiveness, sufficiency
+from awake.eval.plausibility import (
+    aggregate_subwords_to_words,
+    clip_gold_mask_to_window,
+    token_auprc,
+    token_iou,
+    token_prf1_at_k,
+)
 
-- ``awake.eval.faithfulness`` — sufficiency, comprehensiveness, AOPC. Lands in
-  week 3 alongside Project 2 (ERASER Movies).
-- ``awake.eval.plausibility`` — token-IoU, token-F1 vs. human rationales. Same
-  week.
-"""
+__all__ = [
+    "Explainer",
+    "ModelAdapter",
+    "TokenAttribution",
+    "aggregate_subwords_to_words",
+    "aopc_comprehensiveness",
+    "bootstrap_ci",
+    "clip_gold_mask_to_window",
+    "comprehensiveness",
+    "erase",
+    "paired_diff_test",
+    "sufficiency",
+    "token_auprc",
+    "token_iou",
+    "token_prf1_at_k",
+    "top_k_mask",
+]
