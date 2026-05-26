@@ -18,15 +18,25 @@ def load_clip(model_id: str, device: str = "cpu"):
     return model, proc
 
 
+def _to_tensor(out):
+    """Extract a plain tensor from either a Tensor or BaseModelOutputWithPooling."""
+    import torch
+
+    if isinstance(out, torch.Tensor):
+        return out
+    # Newer transformers returns BaseModelOutputWithPooling; pooler_output is the CLS embedding.
+    return out.pooler_output
+
+
 def encode(model, proc, images, texts, device: str = "cpu") -> tuple[np.ndarray, np.ndarray]:
     """Return ``(img_emb, txt_emb)`` arrays for parallel lists of PIL images + strings."""
     import torch
 
     with torch.no_grad():
         pix = proc(images=images, return_tensors="pt", padding=True).to(device)
-        img = model.get_image_features(**pix)
+        img = _to_tensor(model.get_image_features(**pix))
         tok = proc(text=texts, return_tensors="pt", padding=True, truncation=True).to(device)
-        txt = model.get_text_features(**tok)
+        txt = _to_tensor(model.get_text_features(**tok))
     return img.cpu().numpy(), txt.cpu().numpy()
 
 
