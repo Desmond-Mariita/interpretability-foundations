@@ -22,6 +22,8 @@ dependencies = [
   "datasets>=2.20",
   "captum>=0.7",
   "lime>=0.2.0.1",
+  "sentencepiece>=0.2",
+  "protobuf>=4.0",
 ]
 
 [project.optional-dependencies]
