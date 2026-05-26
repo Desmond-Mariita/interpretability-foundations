@@ -83,3 +83,39 @@ def sufficiency(
     keep = rationale | (~visible_mask)
     kept = erase(token_ids, keep_mask=keep, mask_token_id=mask_token_id)
     return base - _prob_j(predict_fn, kept, predicted_class)
+
+
+def aopc_comprehensiveness(
+    predict_fn: PredictFn,
+    token_ids: np.ndarray,
+    scores: np.ndarray,
+    visible_mask: np.ndarray,
+    predicted_class: int,
+    mask_token_id: int,
+    bins: tuple[float, ...] = (0.0, 0.01, 0.05, 0.10, 0.20, 0.50),
+) -> float:
+    """Mean over bins of the predicted-class prob drop after erasing top-k%.
+
+    Includes the 0% bin (drop 0) per DeYoung et al. 2020.
+
+    Args:
+        predict_fn: Callable ``(batch: ndarray) -> ndarray`` returning class
+            probabilities with shape ``(batch, num_classes)``.
+        token_ids: 1-D array of input token ids.
+        scores: Per-token importance scores (same length as ``token_ids``).
+        visible_mask: Boolean mask; True for tokens eligible for selection.
+        predicted_class: Index of the class whose probability is tracked.
+        mask_token_id: Token id substituted into erased positions.
+        bins: Fractions of visible tokens to erase at each step.
+
+    Returns:
+        Mean of per-bin prob drops; higher means the rationale is more
+        important across the full erasure budget spectrum.
+    """
+    base = _prob_j(predict_fn, token_ids, predicted_class)
+    drops = []
+    for frac in bins:
+        rationale = top_k_mask(scores, visible_mask, frac)
+        reduced = erase(token_ids, keep_mask=~rationale, mask_token_id=mask_token_id)
+        drops.append(base - _prob_j(predict_fn, reduced, predicted_class))
+    return float(np.mean(drops))
