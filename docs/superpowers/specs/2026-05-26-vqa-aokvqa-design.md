@@ -1,130 +1,165 @@
-# Project 4 — `04-vqa-aokvqa`: do caption-then-LLM explanations describe the image?
+# Project 4 — `04-vqa-aokvqa`: do caption-then-LLM explanations actually describe the image?
 
-**Status:** draft for four-way review · 2026-05-26 · author Desmond Mariita · repo stays v0.x
+**Status:** revised after four-way review (round 1) · 2026-05-26 · author Desmond Mariita · v0.x
 
-Part of `interpretability-foundations` (P1 tabular, P2 text-faithfulness, P3 multimodal
-shipped). Built per `docs/PLAYBOOK.md` (autonomous defaults applied). **No HF Space** for
-this project. Hardware: single RTX 3090 (24 GB).
+Part of `interpretability-foundations`, built per `docs/PLAYBOOK.md`. **No HF Space.**
+Hardware: single RTX 3090 (24 GB). §12 records review traceability.
 
 ## 1. Question and deliverable
 
-When a **caption-then-LLM** pipeline answers a visual question, its explanation describes a
-*caption*, not the *image*. How often does its answer diverge from a **direct vision-language
-model**, and — via a **vision-ablation consistency probe** — how often does each pipeline
-reproduce its own answer when the image is removed (given the question + its own prior
-explanation)? Deliverables: `metrics.json` (per-pipeline A-OKVQA accuracy; inter-pipeline
-answer divergence; per-pipeline vision-ablation consistency rate; on filtered **and**
-unfiltered subsets, with bootstrap CIs), a hero figure, a notebook (committed with outputs),
-`REPORT.md`. No Space, no deploy.
+A **caption-then-LLM** VQA pipeline explains a *caption*, not an *image*. Two questions:
+(a) how often does its answer **diverge** from a **direct vision-language model**, and (b) how
+much does each pipeline's answer actually **depend on the image** vs. on its own explanation?
+
+The image-dependence is measured by a **vision-ablation probe with a paired baseline**: for
+each pipeline we re-answer with the visual evidence removed, **once given the model's own prior
+explanation and once not**, and report the **consistency gain from the explanation**
+`Δ = consistency(with-explanation) − consistency(no-explanation)`. A large `Δ` means the
+explanation (not the image) is what lets the model reproduce its answer — the faithfulness red
+flag. The raw with-explanation rate is reported too, **honestly labelled "self-rationale
+recoverability"** (it conflates image-independence with explanation-copying on its own).
+
+Deliverables: `metrics.json` (per pipeline: A-OKVQA accuracy, parse_rate; the two ablation
+consistency rates + their `Δ`; inter-pipeline divergence **conditioned on correctness** + a
+2×2 contingency; on **filtered and unfiltered** subsets; cross-pipeline **paired-bootstrap**
+deltas), a multi-panel hero figure (consistency `Δ` + accuracy + parse_rate), a notebook
+(committed with outputs), `REPORT.md`. No Space, no deploy.
 
 ## 2. Data — A-OKVQA (open; code-only)
 
-A-OKVQA (Schwenk et al. 2022), ~25k knowledge-required multiple-choice VQA over COCO images.
-Source: HuggingFace `HuggingFaceM4/A-OKVQA` (bundles the COCO image per item as PIL, avoiding
-a separate ~19 GB COCO download); fall back to `allenai/aokvqa` + local COCO if that dataset
-is unavailable. Per-item fields used: `question`, `choices` (4), `correct_choice_idx`,
-`rationales` (3 human rationales), `image`. **Eval on the `validation` split** (labelled,
-~1.1k; `test` has no public answers). `train` is not used (zero-shot, no fine-tuning).
+A-OKVQA (Schwenk et al. 2022), multiple-choice VQA over COCO images. Source HF
+`HuggingFaceM4/A-OKVQA` (bundles the image as a PIL object per item; fall back to
+`allenai/aokvqa` + local COCO). **Headline split = `validation`** (labelled, ~1.1k) — the
+**full** split is the default run (no sub-sampling for the headline; a seeded subset is used
+**only** as a compute-fallback/pilot, never silently, and never pool `train+val` for the
+headline — train+val is an explicitly-labelled exploratory option only). Fields:
+`question, choices` (4), `correct_choice_idx, rationales` (3), `image`.
 
-- `scripts/00_data.py` — load `validation`; build the **rationale-leakage filter**: drop the
-  ~15% of items where any rationale contains the gold answer string verbatim (case/space-
-  normalised) — these would inflate the consistency probe (Schwenk et al.). Keep a
-  `leakage_flag` per item so results can be reported on **filtered and unfiltered** subsets.
-  Build a **fixed, seeded 1k random subset** (or the whole split if smaller) for the probe;
-  a `--full` flag uses the entire split. Write `outputs/prepared/val.parquet`
-  (`id, question, choices, correct_choice_idx, rationales, leakage_flag, image_path`),
-  caching images under `outputs/images/` (never committed).
+`scripts/00_data.py`:
+- **Decode → save → record path:** HF image columns are PIL objects, not paths; write each to
+  `outputs/images/<id>.jpg` and store `image_path` (images never committed).
+- **Leakage sensitivity split:** flag items where any human rationale contains the **gold
+  choice text** (normalised; **match the choice *text*, never the bare letter** — letters
+  A–D false-positive). Report all metrics on **filtered (no-leak) and unfiltered** subsets.
+- Write `outputs/prepared/val.parquet` (`id, question, choices, correct_choice_idx,
+  rationales, leakage_flag, image_path`). Seed + exact sampled IDs (if a fallback subset is
+  used) recorded in `configs/data.yaml` and the parquet metadata.
 
-## 3. Pipelines (zero-shot, one model resident at a time to fit 24 GB)
+## 3. Pipelines (zero-shot; deterministic; one model resident at a time)
 
-- **Pipeline A — caption-then-LLM.** `Salesforce/blip2-opt-2.7b` captions the image →
-  `Qwen/Qwen2.5-7B-Instruct` receives `(question, the caption, the 4 choices)` and returns a
-  chosen-letter **answer** + a one-sentence **explanation**. The image is never shown to the LLM.
-- **Pipeline B — direct VLM.** `Qwen/Qwen2.5-VL-3B-Instruct` (already cached) receives
-  `(question, image, choices)` and returns **answer** + **explanation** directly.
-- Multiple-choice: prompt for the letter A–D; parse robustly (letter, or choice-text match).
-- `scripts/10_run_pipelines.py` — generate `(caption?, answer, explanation)` for both
-  pipelines over the prepared set; cache to `outputs/gen/{A,B}.parquet`. Orchestrate
-  load→generate→free per model so only one large model is resident at once.
+- **Pipeline A — caption-then-LLM.** `Salesforce/blip2-opt-2.7b` (fp16) captions the image →
+  `Qwen/Qwen2.5-7B-Instruct` (fp16) gets `(question, caption, choices)` → answer + one-sentence
+  explanation. Image never shown to the LLM.
+- **Pipeline B — direct VLM.** `Qwen/Qwen2.5-VL-3B-Instruct` (fp16, cached) gets
+  `(question, image, choices)` → answer + explanation.
+- **Size-matched sensitivity arm (cached):** also run Pipeline B with
+  `Qwen/Qwen2.5-VL-7B-Instruct` to bound the 7B-LLM-vs-3B-VLM capacity confound; report as a
+  secondary arm. The **headline A-vs-B claim is explicitly narrowed** to "this BLIP-2→Qwen-7B
+  pipeline vs this Qwen-VL pipeline" — not a general which-is-better claim (§9).
+- **Determinism + memory:** `do_sample=False`, fixed `max_new_tokens`, `torch_dtype=fp16`,
+  `device_map="cuda:0"`; log each model's HF revision into `metrics.json`. Orchestrate
+  strictly load → generate-all → `del model; torch.cuda.empty_cache()` so only one large
+  model is resident (BLIP-2 ~6 GB, Qwen-7B ~15 GB, Qwen-VL-3B ~7 GB, VL-7B ~16 GB — all fit
+  one-at-a-time on 24 GB).
+- **Strict answer parsing:** prompt forces a first line `Answer: <A-D>`; parse only that
+  (fallback: exact choice-text match; else `None` = unparseable). One main prompt +
+  **one alternate-wording sensitivity** prompt for the probe (§4), pre-registered in
+  `configs/pipelines.yaml`.
 
-## 4. Vision-ablation consistency probe
+`scripts/10_run_pipelines.py` → `outputs/gen/{A,B,B7}.parquet`
+(`id, caption?, answer_idx, explanation, raw_output`).
 
-For each pipeline, re-ask with the **image replaced by a black tile**, giving the model the
-question + **its own previously generated explanation** as context, and check whether the
-answer is unchanged:
-- Pipeline B: feed the black image directly.
-- Pipeline A: BLIP-2 captions the black tile (→ an uninformative caption); Qwen re-answers
-  from `(question, blank caption, choices, prior explanation)`.
-Consistency rate = fraction of items where `ablated_answer == original_answer`. A **high**
-rate means the answer didn't depend on the image (the explanation alone carried it) — the
-signal of interest. `scripts/20_probe.py` over the fixed subset (`--full` for all);
-caches `outputs/gen/{A,B}_ablated.parquet`.
-**Stated limitation (REPORT):** one probe, not a battery — it cannot separate "ignores the
-image" from "uses the image but produces image-independent rationales."
+## 4. Vision-ablation probe (two arms per pipeline)
+
+Visual evidence is removed at each pipeline's entry, and we re-answer **twice**:
+- **with-explanation arm:** prompt includes the model's own prior explanation.
+- **no-explanation arm (baseline):** prompt has only `(question, choices)` (+ ablated visual).
+
+Visual ablation: **Pipeline B** → replace the image with a black tile (neutral prompt, so the
+VLM perceives "no content", not a leading question). **Pipeline A** → replace the caption with
+the fixed string `"(no visual information available)"` (the clean caption-pathway ablation);
+BLIP-2-on-black-tile is kept only as a **secondary sensitivity**, not the primary.
+
+Per pipeline: `consistency = P(ablated answer == original answer)` for each arm, and the
+headline **`Δ = consistency_with_expl − consistency_no_expl`**. `scripts/20_probe.py` →
+`outputs/gen/{A,B,B7}_ablated_{expl,noexpl}.parquet`. Limitation (REPORT): even with the
+baseline, this is one probe family, not a full faithfulness battery.
 
 ## 5. Shared core — `src/awake/eval/vqa_consistency.py` (pure, unit-tested)
 
 ```python
-def normalize_answer(text: str) -> str: ...                      # lowercase, strip, punct
+def normalize_text(s: str) -> str: ...                       # lower, strip, collapse punct/space
 def extract_choice(model_output: str, choices: list[str]) -> int | None:
-    """Parse the chosen choice index from a model's free text (letter A-D or choice match)."""
-def rationale_leaks_answer(rationales: list[str], answer: str) -> bool:
-    """True if any rationale contains the (normalised) answer substring."""
-def consistency_rate(original: list[int|None], ablated: list[int|None]) -> float:
-    """Fraction of items whose ablated answer equals the original (both parsed)."""
-def pipeline_divergence(answers_a: list[int|None], answers_b: list[int|None]) -> float:
-    """Fraction of items where the two pipelines' answers differ (both parsed)."""
-def accuracy(pred: list[int|None], gold: list[int]) -> float: ...
+    """Strict: first-line 'Answer: <A-D>'; else exact normalized choice-text match; else None."""
+def explanation_leaks_answer(explanation: str, chosen_choice_text: str) -> bool: ...
+def rationale_leaks_answer(rationales: list[str], gold_choice_text: str) -> bool: ...
+def parse_rate(parsed: list[int | None]) -> float: ...
+def accuracy(pred: list[int | None], gold: list[int]) -> float:
+    """Primary policy: None counts as wrong (denominator = all items)."""
+def consistency_rate(original: list[int | None], ablated: list[int | None]) -> float:
+    """Primary policy: a pair is consistent iff both parse AND are equal; unparseable on
+    either side counts as INconsistent (denominator = all items). Paired-parsed-only is a
+    documented sensitivity, computed by a separate flag."""
+def pipeline_divergence(a: list[int | None], b: list[int | None], gold: list[int]) -> dict:
+    """Overall divergence + the 2x2 contingency conditioned on correctness
+    (A right/wrong x B right/wrong, agree/disagree)."""
 ```
-All pure (operate on parsed ints / strings, no models), injected nothing, fully unit-tested.
-Reuse `awake.eval.bootstrap` for CIs. Add to `src/awake/eval/__init__.py`.
+All pure (parsed ints / strings; no models, no I/O). Reuse `awake.eval.bootstrap` for CIs and
+**paired** deltas. Add to `src/awake/eval/__init__.py`.
 
 ## 6. Eval + figures
 
-`scripts/11_eval.py` — over filtered + unfiltered subsets: per-pipeline accuracy, inter-
-pipeline divergence, per-pipeline vision-ablation consistency rate, each with bootstrap 95%
-CIs (`awake.eval.bootstrap`). `metrics.json` schema:
-`{"split":"validation","n":..,"n_filtered":..,"subsets":{"unfiltered":{...},"filtered":{...}}}`
-with each subset holding `{"accuracy":{A,B}, "divergence", "consistency":{A,B}}` (means+CIs).
-Hero figure: per-pipeline vision-ablation **consistency rate** (A vs B), filtered vs
-unfiltered, with CIs — the headline visual.
+`scripts/30_eval.py` — for **{unfiltered, filtered}** subsets and **{A, B, B7}** pipelines:
+accuracy, parse_rate, the two ablation consistencies + `Δ`, divergence + the correctness
+contingency. **Bootstrap 95% CIs** on each; **paired-bootstrap** CIs on the cross-pipeline and
+with−no-expl deltas (CIs reported regardless of zero; no post-hoc significance). `metrics.json`:
+`{"split":"validation","n":..,"n_filtered":..,"model_revisions":{...},
+"subsets":{"unfiltered":{"pipelines":{"A":{accuracy,parse_rate,consistency:{with_expl,no_expl,delta}},"B":{...},"B7":{...}},
+"divergence":{overall, contingency:{...}}},"filtered":{...}}, "prompt_variant":"main"}`.
+Hero figure: a multi-panel — (i) consistency `Δ` per pipeline (with CIs), (ii) accuracy,
+(iii) parse_rate — so a stably-wrong/image-ignoring pipeline can't look good on `Δ` alone.
 
 ## 7. Tests
 
-- **unit** (`src/awake/eval/vqa_consistency.py`, carry the 90% floor): `extract_choice` (letter,
-  choice-text, unparseable→None), `rationale_leaks_answer` (leak/no-leak/normalisation),
-  `consistency_rate`/`pipeline_divergence`/`accuracy` on hand cases incl. `None` handling.
-- **smoke** (CPU, no model downloads): a **stub generator** returning canned
-  answers/explanations; the pipeline-driver + probe logic end-to-end on the stub →
-  metrics over tiny synthetic items. Never loads BLIP-2/Qwen or the dataset.
-- **slow** (excluded from CI): real BLIP-2 / Qwen-2.5-7B / Qwen-2.5-VL-3B generation on GPU.
+- **unit** (`vqa_consistency.py`, 90% floor): `extract_choice` (first-line letter, choice-text
+  fallback, malformed→None); `rationale_leaks_answer`/`explanation_leaks_answer` (leak/no-leak,
+  letter-not-matched, normalisation); `consistency_rate` denominator policy incl. `None` on
+  either side = inconsistent; `parse_rate`; `accuracy` None=wrong; `pipeline_divergence`
+  contingency on a hand-built case.
+- **smoke** (CPU, no model downloads, no dataset): a **stub generator** (canned
+  answers/explanations) drives `10_run_pipelines`/`20_probe` logic + `30_eval` end-to-end on
+  tiny synthetic items. Heavy model imports are **lazy (inside functions)** so importing the
+  scripts triggers no download.
+- **slow** (excluded from CI): real BLIP-2 / Qwen-2.5-7B / Qwen-2.5-VL-{3B,7B} generation.
 
 ## 8. Deps + governance
 
-Add `accelerate`, `qwen-vl-utils`, `pillow` (transformers/torch/datasets already present;
-Qwen2.5-VL needs `qwen-vl-utils` + transformers≥4.49 — the installed 5.9 has it). BLIP-2 +
-Qwen via transformers (`Blip2ForConditionalGeneration`, `AutoModelForCausalLM`,
-`Qwen2_5_VLForConditionalGeneration`). ADR `004-vqa-pipelines-and-vision-ablation.md`: the
-two-pipeline choice, the rationale-leakage filter + report-both-subsets, the single-probe
-scope + its stated limitation, and the model substitutions if any are forced by the env.
-CHANGELOG `[Unreleased]` P4 entry; repo stays v0.x.
+Add `qwen-vl-utils>=0.0.10`, `accelerate>=0.30` (pillow already present; transformers/torch/
+datasets present — transformers 5.9 has Qwen2.5-VL). ADR
+`004-vqa-pipelines-and-vision-ablation.md`: the paired-baseline probe (`Δ`) + why raw
+consistency is mislabelled without it; Pipeline-A null-caption ablation; the narrowed A-vs-B
+claim + size/family/caption confounds; strict parsing + denominator policy; determinism + model
+revisions. CHANGELOG `[Unreleased]` P4 entry; repo stays v0.x.
 
 ## 9. Limitations
 
-No fine-tuning (zero-shot pipelines); a single consistency probe (not a faithfulness battery)
-that cannot distinguish image-ignoring from image-independent-rationale; A-OKVQA-only, no
-general which-pipeline-is-better claim; multiple-choice answering only (direct-answer A-OKVQA
-not scored); free-text answer parsing is heuristic (unparseable answers counted as a miss and
-reported).
+Zero-shot (no fine-tuning); **A-vs-B is confounded** by parameter count (7B+captioner vs 3B/7B
+VLM), model family, and modality stack — the headline claim is scoped to these specific
+instantiations, with the VL-7B arm bounding the size effect; **BLIP-2 caption quality** is a
+confound for Pipeline A's accuracy/divergence (scope claims to the BLIP-2 instantiation); the
+probe is one family (with baseline) not a battery; multiple-choice only (direct-answer A-OKVQA
+not scored); answer parsing is strict-then-heuristic with unparseables reported via parse_rate;
+prompt sensitivity bounded by one alternate-wording arm, not exhaustive.
 
-## 10. Real-run scope (per PLAYBOOK §1)
+## 10. Real-run scope (PLAYBOOK §1)
 
-A-OKVQA validation + bundled images is a modest download; Qwen-2.5-VL-3B is cached; BLIP-2 +
-Qwen-2.5-7B (~30 GB) download on first run. 7B-class generation over the subset is the cost.
-Build to green-CI + ready, then run on a **right-sized** real subset (the configurable probe
-subset; reduce N if full-1k generation is time-prohibitive on the 3090) to produce real,
-clearly-labelled-N numbers; document the exact N + `--full` reproduce step. One model resident
-at a time. No fabricated numbers.
+A-OKVQA val + bundled images = modest download; Qwen-VL-3B/7B cached; BLIP-2 + Qwen-2.5-7B
+(~30 GB) download on first run. Cost = generation over ~1.1k items × pipelines × (answer +
+explanation + 2 ablation arms) with 7B-class models, one resident at a time. Build to
+green-CI + ready, then run the **full validation** headline if it completes in reasonable
+wall-clock; otherwise fall back to a **seeded, clearly-labelled-N subset** for the headline and
+note `--full` to reproduce. The VL-7B arm and BLIP-2-on-black secondary sensitivity run only if
+time permits (clearly marked optional). No fabricated numbers; log model revisions.
 
 ## 11. Repository layout (new)
 
@@ -132,10 +167,27 @@ at a time. No fabricated numbers.
 src/awake/eval/vqa_consistency.py            # NEW pure core (+ __init__ export)
 tests/test_eval_vqa_consistency.py
 projects/04-vqa-aokvqa/
-  configs/{data,pipelines}.yaml
-  scripts/{00_data,10_run_pipelines,20_probe,11_eval}.py  _paths.py _models.py _stub.py
+  configs/{data,pipelines}.yaml              # prompts, seed, max_new_tokens, model ids+revisions
+  scripts/{00_data,10_run_pipelines,20_probe,30_eval}.py  _paths.py _models.py _stub.py
   tests/{conftest.py, test_data_smoke.py, test_pipeline_smoke.py}
-  notebooks/01-vqa-consistency.py            # committed WITH outputs
-  REPORT.md  (README.md exists — updated)  (assets/, outputs/ gitignored)
+  notebooks/01-vqa-consistency.py            # committed WITH outputs (no raw dataset dumps)
+  REPORT.md  (README.md exists — updated)    (assets/, outputs/ gitignored)
 docs/decisions/004-vqa-pipelines-and-vision-ablation.md
 ```
+
+## 12. Review traceability (round 1 → folded in)
+
+- No-explanation baseline arm + headline `Δ`; relabel raw rate as self-rationale recoverability
+  ← all 4 (BLOCKER).
+- Pipeline-A null-caption ablation (black-tile = secondary) ← methodology + Gemini + Codex.
+- Denominator policy + parse_rate + strict `Answer:` parsing ← engineering + Codex + Gemini.
+- Narrow A-vs-B claim + size/family/caption confounds + cached VL-7B size-matched arm ← all.
+- Divergence conditioned on correctness + 2x2 contingency ← methodology + Codex.
+- Paired-bootstrap cross-pipeline deltas ← methodology + Codex.
+- Full validation headline; no silent train+val pooling ← all.
+- Leakage filter matches choice **text** (not letter), kept as sensitivity split + model-output
+  leakage flag ← engineering + Codex.
+- HF image decode→save→path; lazy heavy imports; `30_eval` renumber; seed in config + logged
+  IDs; determinism (`do_sample=False`, revisions); `torch_dtype=fp16`/`device_map`;
+  `qwen-vl-utils>=0.0.10` ← engineering + Codex.
+- Multi-panel hero (Δ + accuracy + parse_rate) ← Codex + Gemini + methodology.
