@@ -139,3 +139,20 @@ def test_pipeline_divergence_overall_and_contingency():
 def test_pipeline_divergence_none_counts_as_disagree():
     out = pipeline_divergence([None, 0], [0, 0], [0, 0])
     assert out["overall"] == 0.5  # item0 None vs 0 disagrees; item1 agrees
+
+
+@pytest.mark.unit
+def test_public_api_reexports_vqa_consistency():
+    import awake.eval as e
+
+    for name in (
+        "normalize_text",
+        "extract_choice",
+        "explanation_leaks_answer",
+        "rationale_leaks_answer",
+        "parse_rate",
+        "accuracy",
+        "consistency_rate",
+        "pipeline_divergence",
+    ):
+        assert hasattr(e, name), name

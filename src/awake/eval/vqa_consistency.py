@@ -124,7 +124,7 @@ def accuracy(pred: list[int | None], gold: list[int]) -> float:
         raise ValueError("pred and gold must have equal length")
     if not pred:
         return 0.0
-    return sum(p is not None and p == g for p, g in zip(pred, gold)) / len(pred)
+    return sum(p is not None and p == g for p, g in zip(pred, gold, strict=False)) / len(pred)
 
 
 def consistency_rate(
@@ -151,7 +151,7 @@ def consistency_rate(
     """
     if len(original) != len(ablated):
         raise ValueError("original and ablated must have equal length")
-    pairs = list(zip(original, ablated))
+    pairs = list(zip(original, ablated, strict=False))
     if paired_only:
         pairs = [(o, a) for o, a in pairs if o is not None and a is not None]
     if not pairs:
@@ -193,7 +193,7 @@ def pipeline_divergence(
         "both_wrong": {"agree": 0, "disagree": 0},
     }
     disagree = 0
-    for ai, bi, gi in zip(a, b, gold):
+    for ai, bi, gi in zip(a, b, gold, strict=False):
         agree = ai is not None and bi is not None and ai == bi
         if not agree:
             disagree += 1
