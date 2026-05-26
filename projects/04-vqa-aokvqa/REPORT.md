@@ -2,7 +2,10 @@
 
 **Author:** Desmond Mariita.
 **Dataset:** A-OKVQA (Schwenk et al. 2022; open; code-only, images not committed).
-**Status:** scaffold -- results pending the real run (Task 18).
+**Status:** complete -- real run on the full validation split (n=1145; 805 leak-flagged,
+340 leakage-free). Generated 2026-05-27 on a single RTX 3090. Model revisions logged in
+`metrics.json` (BLIP-2 `59a1ef6c`, Qwen2.5-7B `a09a3545`, Qwen2.5-VL-3B `66285546`,
+Qwen2.5-VL-7B `cc594898`).
 
 ---
 
@@ -127,64 +130,105 @@ reference line), (ii) accuracy, (iii) parse rate.
 
 ![hero](assets/hero.png)
 
-### 5.1 Headline metrics (validation, full split)
+### 5.1 Headline metrics (validation, full split, n=1145)
 
-All numbers below are placeholders. Run `uv run python projects/04-vqa-aokvqa/scripts/30_eval.py`
-to populate `outputs/metrics.json`, then replace these cells with the real values.
+Accuracy is a point estimate (the eval stores bootstrap CIs for Delta and divergence, not
+for accuracy). Parse rate is the answer arm.
 
-| Pipeline | Accuracy (95% CI) | Parse rate | Expl leak rate |
+| Pipeline | Accuracy | Parse rate | Expl leak rate |
 |---|---|---|---|
-| A (BLIP-2 + Qwen-7B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| B (Qwen-VL-3B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| B7 (Qwen-VL-7B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
+| A (BLIP-2 + Qwen-7B) | 0.628 | 0.963 | 0.812 |
+| B (Qwen-VL-3B) | 0.831 | 0.997 | 0.252 |
+| B7 (Qwen-VL-7B) | 0.873 | 1.000 | 0.866 |
+
+The two direct VLMs outperform the caption-then-LLM pipeline by ~20-25 accuracy points: the
+caption is a lossy bottleneck. B7's near-perfect parse rate and B7 > B accuracy are the
+expected capacity gains within the VLM family.
 
 ### 5.2 Vision-ablation probe (Delta per pipeline)
 
 | Pipeline | Self-rationale recov. (with-expl) | Consistency (no-expl baseline) | Delta (95% CI) |
 |---|---|---|---|
-| A (BLIP-2 + Qwen-7B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| B (Qwen-VL-3B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| B7 (Qwen-VL-7B) | (filled by the real run) | (filled by the real run) | (filled by the real run) |
+| A (BLIP-2 + Qwen-7B) | 0.924 | 0.544 | **0.380** [0.351, 0.409] |
+| B (Qwen-VL-3B) | 0.666 | 0.522 | **0.144** [0.115, 0.170] |
+| B7 (Qwen-VL-7B) | 0.986 | 0.500 | **0.486** [0.456, 0.516] |
+
+Every Delta is positive with a CI well clear of zero: across all three pipelines, the
+model's own explanation is a substantial cue for reproducing its answer once the image is
+removed. The effect is **largest for the strongest model (B7, Delta=0.486)** and smallest
+for the 3B VLM (B, Delta=0.144) -- i.e. the more capable model leans *more* on its
+self-rationale, the central faithfulness red flag this probe was built to detect. Note all
+three no-explanation baselines sit near 0.50, so a naive reading of the raw with-explanation
+rate (0.99 for B7) would badly overstate image-independence; the paired baseline is what
+makes that visible.
 
 ### 5.3 Inter-pipeline divergence
 
-| Pair | Divergence (95% CI) | both_correct agree/disagree | both_wrong agree/disagree |
+| Pair | Divergence (95% CI) | both_correct (agree/dis) | both_wrong (agree/dis) |
 |---|---|---|---|
-| A vs B | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| A vs B7 | (filled by the real run) | (filled by the real run) | (filled by the real run) |
-| B vs B7 | (filled by the real run) | (filled by the real run) | (filled by the real run) |
+| A vs B | 0.375 [0.347, 0.403] | 649 / 0 | 67 / 57 |
+| A vs B7 | 0.364 [0.336, 0.393] | 672 / 0 | 56 / 42 |
+| B vs B7 | 0.139 [0.119, 0.160] | 905 / 0 | 81 / 18 |
 
-### 5.4 Filtered subset (leakage-free)
+The caption pipeline disagrees with each VLM on ~37% of items, but the two VLMs disagree on
+only ~14% -- the modality stack (caption vs. direct vision), not raw capacity, drives most
+of the A-vs-B divergence, since the size-matched B-vs-B7 pair diverges far less. When A and
+B both answer wrong they more often pick *different* wrong answers (57 disagree vs 67 agree),
+suggesting the two architectures fail for different reasons.
+
+### 5.4 Filtered subset (leakage-free, n=340)
 
 | Pipeline | Accuracy | Delta (95% CI) |
 |---|---|---|
-| A | (filled by the real run) | (filled by the real run) |
-| B | (filled by the real run) | (filled by the real run) |
-| B7 | (filled by the real run) | (filled by the real run) |
+| A | 0.641 | 0.362 [0.309, 0.418] |
+| B | 0.847 | 0.159 [0.112, 0.209] |
+| B7 | 0.882 | 0.465 [0.409, 0.521] |
+
+Removing the 805 items whose human rationales leak the gold answer text barely moves the
+picture: the Delta ordering (B7 > A > B) and magnitudes are essentially unchanged, so the
+result is not an artifact of dataset-side answer leakage.
 
 ### 5.5 B7 completion status
 
-`b7_completed:` (filled by the real run -- see `metrics.json`). If `false`, the size
-confound between A (~7B parameters) and B (3B parameters) is unmitigated and the A-vs-B
-comparison is limited to the A-vs-B7 pair.
+`b7_completed: true`. The size-matched 7B VLM arm ran on the full split, so the
+parameter-count confound in the A-vs-B comparison is bounded (see Discussion).
 
 ## 6. Discussion
 
-_To be filled after the real run (Task 18). The framing below describes what the results
-will show._
+**The explanation, not the image, carries the answer once vision is ablated -- most of all
+for the strongest model.** All three pipelines show a large positive Delta (A 0.38, B 0.14,
+B7 0.49): re-answering with the image removed succeeds far more often when the model's own
+prior explanation is in the prompt than when it is not. Because the no-explanation baselines
+all hover near 0.50 (chance-like for a 4-way choice after some language-prior signal), the
+headline-grabbing with-explanation rates -- 0.92-0.99 -- would, read alone, suggest these
+pipelines barely need the image. The paired baseline corrects that illusion: the *gain* from
+the explanation is what is large, which is the self-rationale-recoverability red flag.
 
-The Delta metric disambiguates two failure modes that raw consistency cannot separate: a
-pipeline that copies its explanation and a pipeline that genuinely relies on the image. A
-high self-rationale recoverability rate paired with Delta near zero means language priors
-are driving the answer; a high rate paired with Delta > 0 means the explanation is the
-primary cue and the image carries little additional weight.
+**Capacity makes faithfulness worse here, not better.** The size-matched B7 (7B VLM) has the
+highest accuracy (0.873) *and* the highest Delta (0.486), while the smaller B (3B VLM) has
+both the lowest accuracy and the lowest Delta. So within the VLM family, the more capable
+model is the one whose answer is most recoverable from its own rationale -- a caution against
+assuming stronger models give more image-grounded explanations.
 
-The correctness-conditioned divergence contingency reveals whether A and B tend to fail
-on the same items (`both_wrong` agree) or on different items -- the latter would suggest
-the pipelines fail for different reasons and might be informative for ensembling.
+**Explanation leakage tracks Delta.** B7 and A, the high-Delta pipelines, also restate the
+chosen answer text in their explanations most often (leak rate 0.87 and 0.81 vs. B's 0.25).
+This is mechanistically consistent: an explanation that contains the answer makes the answer
+trivially recoverable when the image is gone. The model-output leak rate and Delta are
+measuring two faces of the same behavior.
 
-The B-vs-B7 divergence pair bounds how much of the A-vs-B divergence is attributable to
-model capacity alone.
+**Divergence is driven by the modality stack, not capacity.** A diverges from both VLMs on
+~37% of items, but the two VLMs diverge on only ~14%. Since B and B7 differ only in size,
+the much larger A-vs-VLM divergence is attributable to the caption-then-LLM architecture
+(a lossy text bottleneck) rather than the parameter gap. The correctness contingency
+reinforces this: A and B never disagree when both are correct (649/0) but frequently pick
+different wrong answers when both fail (57 disagree vs. 67 agree), i.e. they fail for
+different reasons.
+
+**Net.** On A-OKVQA, the caption-then-LLM pipeline is both less accurate and more divergent
+than a direct VLM, and *every* pipeline -- especially the strongest -- shows that its
+self-explanation, not the image, is the dominant cue for reproducing its own answer under
+vision ablation. The filtered-subset replication rules out dataset answer-leakage as the
+cause.
 
 ## 7. Limitations
 
@@ -219,12 +263,15 @@ restricted to the four-choice multiple-choice format.
 is the primary; a text-substring fallback handles non-strict-compliant outputs. Unparseable
 outputs count as wrong/inconsistent. Parse rate is reported per arm to make failures visible.
 
-**Prompt sensitivity bounded by one alternate-wording arm.** A single alternative prompt
-wording is run as a sensitivity check. This is not exhaustive; different prompt formulations
-could shift absolute accuracy and consistency rates.
+**Single prompt wording (headline).** The headline run used only the `main` prompt
+(`metrics.json` records `"prompt_variant": "main"`). An alternate wording is pre-registered
+in `configs/pipelines.yaml` as a sensitivity arm but was **not executed** for this report;
+absolute accuracy and consistency rates could shift under different prompt formulations, and
+the alternate-prompt sensitivity remains future work.
 
-**Subset N.** If the run used a subset (pilot mode), it is recorded as such in
-`metrics.json` and is NOT the headline. The headline requires the full validation split.
+**Headline is the full split.** All numbers above are the full `validation` split (n=1145);
+no subsampling was used (`metrics.json` records `n: 1145`). A seeded 8-item pilot was run
+first only to validate the pipeline end-to-end and is not reported here.
 
 ## 8. References
 
