@@ -35,9 +35,13 @@ def _prompt_for(item: dict, expl: str, prompts: dict, with_expl: bool, caption: 
     return render(prompts[key], **kwargs)
 
 
-def ablate_pipeline_b(items: list[dict], gen_rows: list[dict],
-                      vlm_generate: Callable[[str, str | None], str], prompts: dict,
-                      with_expl: bool) -> list[dict]:
+def ablate_pipeline_b(
+    items: list[dict],
+    gen_rows: list[dict],
+    vlm_generate: Callable[[str, str | None], str],
+    prompts: dict,
+    with_expl: bool,
+) -> list[dict]:
     """Re-answer Pipeline B with a black tile (image_path=None)."""
     expl = _expl_by_id(gen_rows)
     rows = []
@@ -47,15 +51,21 @@ def ablate_pipeline_b(items: list[dict], gen_rows: list[dict],
     return rows
 
 
-def ablate_pipeline_a(items: list[dict], gen_rows: list[dict],
-                      llm_generate: Callable[[str], str], prompts: dict, with_expl: bool,
-                      null_caption: str) -> list[dict]:
+def ablate_pipeline_a(
+    items: list[dict],
+    gen_rows: list[dict],
+    llm_generate: Callable[[str], str],
+    prompts: dict,
+    with_expl: bool,
+    null_caption: str,
+) -> list[dict]:
     """Re-answer Pipeline A with the caption replaced by the null-caption string."""
     expl = _expl_by_id(gen_rows)
     rows = []
     for item in items:
-        prompt = _prompt_for(item, expl.get(item["id"], ""), prompts, with_expl,
-                             caption=null_caption)
+        prompt = _prompt_for(
+            item, expl.get(item["id"], ""), prompts, with_expl, caption=null_caption
+        )
         rows.append(_ablated_row(item, llm_generate(prompt)))
     return rows
 

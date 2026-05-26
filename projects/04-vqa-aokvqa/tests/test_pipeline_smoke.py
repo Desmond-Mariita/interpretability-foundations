@@ -3,18 +3,19 @@
 import importlib
 
 import pytest
-
 from _prompts import format_choices, render
 from _stub import stub_generate
 
 
 @pytest.mark.smoke
 def test_format_choices_letters_options():
+    """Choices render as a lettered block."""
     assert format_choices(["red", "blue"]) == "A. red\nB. blue"
 
 
 @pytest.mark.smoke
 def test_render_fills_placeholders():
+    """Render fills template placeholders and strips trailing whitespace."""
     tmpl = "Q: {question}\n{choices_block}"
     out = render(tmpl, question="why?", choices_block="A. x")
     assert out == "Q: why?\nA. x"
@@ -22,6 +23,7 @@ def test_render_fills_placeholders():
 
 @pytest.mark.smoke
 def test_stub_generate_returns_answer_line_and_is_deterministic():
+    """Stub generation emits an Answer line and is deterministic for an item."""
     item = {"id": "q1", "choices": ["red", "blue", "green", "black"], "correct_choice_idx": 2}
     out = stub_generate("any prompt", item)
     assert out.splitlines()[0].startswith("Answer: ")
@@ -30,19 +32,29 @@ def test_stub_generate_returns_answer_line_and_is_deterministic():
 
 def _items():
     return [
-        {"id": "q1", "question": "color?", "choices": ["red", "blue", "green", "black"],
-         "correct_choice_idx": 0},
-        {"id": "q2", "question": "animal?", "choices": ["cat", "dog", "fox", "owl"],
-         "correct_choice_idx": 1},
+        {
+            "id": "q1",
+            "question": "color?",
+            "choices": ["red", "blue", "green", "black"],
+            "correct_choice_idx": 0,
+        },
+        {
+            "id": "q2",
+            "question": "animal?",
+            "choices": ["cat", "dog", "fox", "owl"],
+            "correct_choice_idx": 1,
+        },
     ]
 
 
 @pytest.mark.smoke
 def test_run_pipeline_b_rows_have_expected_fields():
+    """Pipeline B emits rows with the expected parsed-answer fields."""
     mod = importlib.import_module("10_run_pipelines")
     prompts = {"answer": "Q: {question}\n{choices_block}"}
-    rows = mod.run_pipeline_b(_items(), vlm_generate=lambda p, img: stub_generate(p, _items()[0]),
-                              prompts=prompts)
+    rows = mod.run_pipeline_b(
+        _items(), vlm_generate=lambda p, img: stub_generate(p, _items()[0]), prompts=prompts
+    )
     r = rows[0]
     assert set(r) >= {"id", "answer_idx", "explanation", "raw_output", "parsed_by", "expl_leaks"}
     assert r["parsed_by"] == "strict"
@@ -51,6 +63,7 @@ def test_run_pipeline_b_rows_have_expected_fields():
 
 @pytest.mark.smoke
 def test_run_pipeline_a_includes_caption():
+    """Pipeline A records the generated caption on each row."""
     mod = importlib.import_module("10_run_pipelines")
     items = _items()
     prompts = {"answer_with_caption": "{caption}\nQ: {question}\n{choices_block}"}
@@ -66,10 +79,13 @@ def test_run_pipeline_a_includes_caption():
 
 @pytest.mark.smoke
 def test_ablate_arms_differ_only_by_explanation():
+    """The two ablation arms differ only by including the prior explanation."""
     mod = importlib.import_module("20_probe")
     items = _items()
-    gen_rows = [{"id": "q1", "answer_idx": 0, "explanation": "because red"},
-                {"id": "q2", "answer_idx": 1, "explanation": "because dog"}]
+    gen_rows = [
+        {"id": "q1", "answer_idx": 0, "explanation": "because red"},
+        {"id": "q2", "answer_idx": 1, "explanation": "because dog"},
+    ]
     prompts = {
         "ablate_with_expl": "prev: {explanation}\nQ: {question}\n{choices_block}",
         "ablate_no_expl": "Q: {question}\n{choices_block}",
@@ -82,6 +98,6 @@ def test_ablate_arms_differ_only_by_explanation():
 
     rows_with = mod.ablate_pipeline_b(items, gen_rows, vlm_generate, prompts, with_expl=True)
     assert seen["with_expl"] is True
-    rows_without = mod.ablate_pipeline_b(items, gen_rows, vlm_generate, prompts, with_expl=False)
+    mod.ablate_pipeline_b(items, gen_rows, vlm_generate, prompts, with_expl=False)
     assert seen["with_expl"] is False
     assert {"id", "ablated_idx", "parsed_by"} <= set(rows_with[0])

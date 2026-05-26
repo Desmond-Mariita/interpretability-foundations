@@ -29,7 +29,9 @@ def load_blip2_captioner(model_id: str, gen_cfg: dict) -> Callable[[str], str]:
     @torch.no_grad()
     def caption_fn(image_path: str) -> str:
         image = Image.open(image_path).convert("RGB")
-        inputs = proc(images=image, return_tensors="pt").to(model.device, _dtype(gen_cfg["torch_dtype"]))
+        inputs = proc(images=image, return_tensors="pt").to(
+            model.device, _dtype(gen_cfg["torch_dtype"])
+        )
         out = model.generate(**inputs, do_sample=False, max_new_tokens=gen_cfg["max_new_tokens"])
         return proc.batch_decode(out, skip_special_tokens=True)[0].strip()
 
@@ -52,7 +54,7 @@ def load_qwen_lm(model_id: str, gen_cfg: dict) -> Callable[[str], str]:
         text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = tok([text], return_tensors="pt").to(model.device)
         out = model.generate(**inputs, do_sample=False, max_new_tokens=gen_cfg["max_new_tokens"])
-        gen = out[0][inputs["input_ids"].shape[1]:]
+        gen = out[0][inputs["input_ids"].shape[1] :]
         return tok.decode(gen, skip_special_tokens=True).strip()
 
     return generate
@@ -76,17 +78,25 @@ def load_qwen_vl(model_id: str, gen_cfg: dict) -> Callable[[str, str | None], st
 
     @torch.no_grad()
     def generate(prompt: str, image_path: str | None) -> str:
-        image = Image.open(image_path).convert("RGB") if image_path else Image.new("RGB", (224, 224))
-        messages = [{"role": "user", "content": [
-            {"type": "image", "image": image},
-            {"type": "text", "text": prompt},
-        ]}]
+        image = (
+            Image.open(image_path).convert("RGB") if image_path else Image.new("RGB", (224, 224))
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
         text = proc.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         image_inputs, video_inputs = process_vision_info(messages)
-        inputs = proc(text=[text], images=image_inputs, videos=video_inputs,
-                      padding=True, return_tensors="pt").to(model.device)
+        inputs = proc(
+            text=[text], images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt"
+        ).to(model.device)
         out = model.generate(**inputs, do_sample=False, max_new_tokens=gen_cfg["max_new_tokens"])
-        gen = out[0][inputs["input_ids"].shape[1]:]
+        gen = out[0][inputs["input_ids"].shape[1] :]
         return proc.decode(gen, skip_special_tokens=True).strip()
 
     return generate

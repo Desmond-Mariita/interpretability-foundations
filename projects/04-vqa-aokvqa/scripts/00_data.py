@@ -23,15 +23,17 @@ def prepare_rows(raw: list[dict]) -> list[dict]:
     rows = []
     for r in raw:
         gold_text = r["choices"][int(r["correct_choice_idx"])]
-        rows.append({
-            "id": r["id"],
-            "question": r["question"],
-            "choices": list(r["choices"]),
-            "correct_choice_idx": int(r["correct_choice_idx"]),
-            "rationales": list(r.get("rationales", [])),
-            "leakage_flag": rationale_leaks_answer(list(r.get("rationales", [])), gold_text),
-            "image_path": str(IMAGES / f"{r['id']}.jpg"),
-        })
+        rows.append(
+            {
+                "id": r["id"],
+                "question": r["question"],
+                "choices": list(r["choices"]),
+                "correct_choice_idx": int(r["correct_choice_idx"]),
+                "rationales": list(r.get("rationales", [])),
+                "leakage_flag": rationale_leaks_answer(list(r.get("rationales", [])), gold_text),
+                "image_path": str(IMAGES / f"{r['id']}.jpg"),
+            }
+        )
     return rows
 
 
@@ -52,13 +54,15 @@ def main() -> None:  # pragma: no cover - slow path, exercised only in the real 
         img_path = IMAGES / f"{ex_id}.jpg"
         if not img_path.exists():  # idempotent: skip re-decode
             ex["image"].convert("RGB").save(img_path, format="JPEG")
-        raw.append({
-            "id": ex_id,
-            "question": ex["question"],
-            "choices": ex["choices"],
-            "correct_choice_idx": ex["correct_choice_idx"],
-            "rationales": ex.get("rationales", []),
-        })
+        raw.append(
+            {
+                "id": ex_id,
+                "question": ex["question"],
+                "choices": ex["choices"],
+                "correct_choice_idx": ex["correct_choice_idx"],
+                "rationales": ex.get("rationales", []),
+            }
+        )
 
     rows = prepare_rows(raw)
     pd.DataFrame(rows).to_parquet(PREPARED / "val.parquet", index=False)

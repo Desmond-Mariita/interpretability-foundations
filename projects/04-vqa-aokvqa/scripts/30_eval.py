@@ -7,6 +7,8 @@ multi-panel hero figure.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from awake.eval.bootstrap import bootstrap_ci, paired_diff_test
@@ -24,12 +26,16 @@ PAIRS = (("A", "B"), ("A", "B7"), ("B", "B7"))
 def _consistency_vector(original: list, ablated: list) -> np.ndarray:
     """Per-item 1.0/0.0 consistency (primary policy) for bootstrapping the delta."""
     return np.array(
-        [float(o is not None and a is not None and o == a) for o, a in zip(original, ablated, strict=True)]
+        [
+            float(o is not None and a is not None and o == a)
+            for o, a in zip(original, ablated, strict=True)
+        ]
     )
 
 
-def compute_subset_metrics(gen: dict, abl: dict, gold: list[int],
-                           n_resamples: int = 2000, seed: int = 0) -> dict:
+def compute_subset_metrics(
+    gen: dict, abl: dict, gold: list[int], n_resamples: int = 2000, seed: int = 0
+) -> dict:
     """Compute per-pipeline accuracy/parse/consistency-delta + pairwise divergence.
 
     Args:
@@ -50,7 +56,8 @@ def compute_subset_metrics(gen: dict, abl: dict, gold: list[int],
         delta_test = paired_diff_test(
             _consistency_vector(ans, abl[p]["expl"]),
             _consistency_vector(ans, abl[p]["noexpl"]),
-            n_resamples=n_resamples, seed=seed,
+            n_resamples=n_resamples,
+            seed=seed,
         )
         pipelines[p] = {
             "accuracy": accuracy(ans, gold),
@@ -71,10 +78,12 @@ def compute_subset_metrics(gen: dict, abl: dict, gold: list[int],
     divergence = {}
     for x, y in PAIRS:
         div = pipeline_divergence(gen[x]["answer_idx"], gen[y]["answer_idx"], gold)
-        agree_vec = np.array([
-            float(ax is not None and ay is not None and ax == ay)
-            for ax, ay in zip(gen[x]["answer_idx"], gen[y]["answer_idx"], strict=True)
-        ])
+        agree_vec = np.array(
+            [
+                float(ax is not None and ay is not None and ax == ay)
+                for ax, ay in zip(gen[x]["answer_idx"], gen[y]["answer_idx"], strict=True)
+            ]
+        )
         lo, _, hi = bootstrap_ci(1.0 - agree_vec, n_resamples=n_resamples, seed=seed)
         divergence[f"{x}_vs_{y}"] = {
             "overall": div["overall"],
@@ -85,15 +94,15 @@ def compute_subset_metrics(gen: dict, abl: dict, gold: list[int],
 
 
 def _gen_dict(df) -> dict:
-    return {"answer_idx": _none_list(df["answer_idx"]),
-            "expl_leaks": list(df["expl_leaks"]),
-            "parsed_by": list(df["parsed_by"])}
+    return {
+        "answer_idx": _none_list(df["answer_idx"]),
+        "expl_leaks": list(df["expl_leaks"]),
+        "parsed_by": list(df["parsed_by"]),
+    }
 
 
 def _none_list(series) -> list:
     """Pandas reads missing ints as NaN; map back to None."""
-    import math
-
     return [None if (isinstance(v, float) and math.isnan(v)) else int(v) for v in series]
 
 
@@ -136,7 +145,7 @@ def main() -> None:  # pragma: no cover - slow/real-run path
         "model_revisions": model_revisions(cfg["models"]),
         "b7_completed": (GEN / "B7.parquet").exists(),
         "subsets": {
-            "unfiltered": _subset(prep["id"].notna()),
+            "unfiltered": _subset(pd.Series(True, index=prep.index)),
             "filtered": _subset(~prep["leakage_flag"]),
         },
     }

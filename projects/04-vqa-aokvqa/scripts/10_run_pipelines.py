@@ -40,25 +40,37 @@ def _row(item: dict, raw: str, caption: str | None = None) -> dict:
     return row
 
 
-def run_pipeline_a(items: list[dict], caption_fn: Callable[[str], str],
-                   llm_generate: Callable[[str], str], prompts: dict) -> list[dict]:
+def run_pipeline_a(
+    items: list[dict],
+    caption_fn: Callable[[str], str],
+    llm_generate: Callable[[str], str],
+    prompts: dict,
+) -> list[dict]:
     """Caption-then-LLM: caption each image, then answer from (question, caption, choices)."""
     rows = []
     for item in items:
         caption = caption_fn(item.get("image_path", ""))
-        prompt = render(prompts["answer_with_caption"], question=item["question"],
-                        caption=caption, choices_block=format_choices(item["choices"]))
+        prompt = render(
+            prompts["answer_with_caption"],
+            question=item["question"],
+            caption=caption,
+            choices_block=format_choices(item["choices"]),
+        )
         rows.append(_row(item, llm_generate(prompt), caption=caption))
     return rows
 
 
-def run_pipeline_b(items: list[dict], vlm_generate: Callable[[str, str | None], str],
-                   prompts: dict) -> list[dict]:
+def run_pipeline_b(
+    items: list[dict], vlm_generate: Callable[[str, str | None], str], prompts: dict
+) -> list[dict]:
     """Direct VLM: answer from (question, image, choices)."""
     rows = []
     for item in items:
-        prompt = render(prompts["answer"], question=item["question"],
-                        choices_block=format_choices(item["choices"]))
+        prompt = render(
+            prompts["answer"],
+            question=item["question"],
+            choices_block=format_choices(item["choices"]),
+        )
         rows.append(_row(item, vlm_generate(prompt, item.get("image_path"))))
     return rows
 
@@ -93,8 +105,12 @@ def main() -> None:  # pragma: no cover - slow path
     llm = load_qwen_lm(cfg["models"]["qwen_lm"], gen_cfg)
     rows_a = []  # captions already computed above; answer with cached captions
     for it in items:
-        prompt = render(prompts["answer_with_caption"], question=it["question"],
-                        caption=captions[it["id"]], choices_block=format_choices(it["choices"]))
+        prompt = render(
+            prompts["answer_with_caption"],
+            question=it["question"],
+            caption=captions[it["id"]],
+            choices_block=format_choices(it["choices"]),
+        )
         rows_a.append(_row(it, llm(prompt), caption=captions[it["id"]]))
     pd.DataFrame(rows_a).to_parquet(GEN / "A.parquet", index=False)
     del llm
