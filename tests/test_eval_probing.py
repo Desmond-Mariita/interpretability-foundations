@@ -3,7 +3,7 @@
 import pytest
 
 from awake.eval.probing import assign_control_labels, balanced_accuracy, base_rate, control_vector
-from awake.eval.probing import majority_class, selectivity
+from awake.eval.probing import emergence_point, majority_class, selectivity, type_overlap
 
 
 @pytest.mark.unit
@@ -59,3 +59,27 @@ def test_control_vector_maps_and_raises_on_unseen():
     assert control_vector(["a", "b", "a"], m) == [0, 1, 0]
     with pytest.raises(KeyError):
         control_vector(["a", "z"], m)
+
+
+@pytest.mark.unit
+def test_type_overlap_seen_and_oov_token_rates():
+    train = ["a", "a", "b"]
+    test = ["a", "a", "c", "c"]  # "a" seen (2 tokens), "c" oov (2 tokens)
+    out = type_overlap(train, test)
+    assert out["seen_type_token_rate"] == pytest.approx(0.5)
+    assert out["oov_type_token_rate"] == pytest.approx(0.5)
+
+
+@pytest.mark.unit
+def test_emergence_point_peak_and_earliest_within_ci():
+    sel = {"embedding": 0.0, "block_0": 0.1, "block_1": 0.45, "block_2": 0.5, "ln_f": 0.9}
+    ci = {
+        "embedding": (-0.05, 0.05),
+        "block_0": (0.0, 0.2),
+        "block_1": (0.38, 0.52),   # overlaps peak's [0.42, 0.58]
+        "block_2": (0.42, 0.58),   # peak
+        "ln_f": (0.8, 1.0),        # excluded from emergence (not a depth point)
+    }
+    out = emergence_point(sel, ci)
+    assert out["peak"] == "block_2"               # ln_f ignored despite higher selectivity
+    assert out["earliest_within_peak_ci"] == "block_1"
