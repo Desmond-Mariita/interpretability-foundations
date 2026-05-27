@@ -200,12 +200,33 @@ def main() -> None:  # pragma: no cover - slow path
             "sent_id": sent_te,
             "points": {},
         }
+        # For is_noun only, also persist the fitted probe (scaler + LR params) per point so the
+        # notebook's worked example can trace a self-authored sentence across depth.
+        save_artifact = prop == "is_noun"
+        artifact: dict = {}
         for p in points:
             x_tr = acts["train"][p][sub["train"]][cap].astype(np.float64)
             x_te = acts["test"][p][sub["test"]].astype(np.float64)
             probe_pred = [int(v) for v in fit_predict(x_tr, y_tr)(x_te)]
             ctrl_preds = [[int(v) for v in fit_predict(x_tr, ct)(x_te)] for ct in c_tr]
             per_token["points"][p] = {"probe": probe_pred, "control": ctrl_preds}
+            if save_artifact:
+                from sklearn.linear_model import LogisticRegression
+                from sklearn.preprocessing import StandardScaler
+
+                scaler = StandardScaler().fit(x_tr)
+                clf = LogisticRegression(
+                    C=best_c,
+                    class_weight="balanced",
+                    max_iter=cfg["probe"]["max_iter"],
+                    random_state=cfg["probe"]["random_state"],
+                ).fit(scaler.transform(x_tr), y_tr)
+                artifact[f"scaler_mean_{p}"] = scaler.mean_
+                artifact[f"scaler_scale_{p}"] = scaler.scale_
+                artifact[f"coef_{p}"] = clf.coef_
+                artifact[f"intercept_{p}"] = clf.intercept_
+        if save_artifact:
+            np.savez(OUTPUTS / "probe" / "is_noun.npz", **artifact)
 
         maj = majority_class(list(y_tr))
         info = {

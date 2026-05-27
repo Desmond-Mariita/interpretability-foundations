@@ -555,7 +555,7 @@ else:
         _traj_word = _words[_TRAJECTORY_WORD_IDX]
         _traj_probas = []
         for _pt_name in _depth_points:
-            _pr = float(_probe_proba(_pt_name, _residuals[_pt_name][[_TRAJECTORY_WORD_IDX]]))
+            _pr = float(_probe_proba(_pt_name, _residuals[_pt_name][[_TRAJECTORY_WORD_IDX]])[0])
             _traj_probas.append(_pr)
 
         print(f"=== Noun-probability trajectory for '{_traj_word}' (word index {_TRAJECTORY_WORD_IDX}) ===")
