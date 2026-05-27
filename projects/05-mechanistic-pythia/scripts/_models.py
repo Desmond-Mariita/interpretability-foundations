@@ -42,7 +42,9 @@ def load_pythia(model_id: str, revision: str, device: str = "cpu"):  # pragma: n
     return model, tok
 
 
-def extract_points(model, tok, sentence_words, space_after, n_blocks, device="cpu"):  # pragma: no cover - slow
+def extract_points(
+    model, tok, sentence_words, space_after, n_blocks, device="cpu"
+):  # pragma: no cover - slow
     """Return {point: (n_words, d_model) np.float16} for one sentence via forward hooks.
 
     Points: 'embedding' (embed_in output) + 'block_0..N-1' (each GPTNeoXLayer output, resid_post)
@@ -68,6 +70,7 @@ def extract_points(model, tok, sentence_words, space_after, n_blocks, device="cp
     def mk(name):
         def hook(_m, _i, out):
             captured[name] = (out[0] if isinstance(out, tuple) else out).detach()
+
         return hook
 
     handles.append(base.embed_in.register_forward_hook(mk("embedding")))

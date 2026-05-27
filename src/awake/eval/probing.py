@@ -140,6 +140,7 @@ def emergence_point(
         Overlap: ``lo_j <= hi_peak and lo_peak <= hi_j``. Lowest-index tie-break (depth points
         are ordered embedding, block_0, block_1, ...).
     """
+
     def order(name: str) -> int:
         return 0 if name == "embedding" else 1 + int(name.split("_")[1])
 

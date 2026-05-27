@@ -52,8 +52,48 @@ def test_assign_control_labels_token_rate_matched_and_deterministic():
     counts = {
         f"t{i:02d}": c
         for i, c in enumerate(
-            [10, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5,
-             4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+            [
+                10,
+                9,
+                9,
+                8,
+                8,
+                8,
+                7,
+                7,
+                7,
+                7,
+                6,
+                6,
+                6,
+                6,
+                6,
+                5,
+                5,
+                5,
+                5,
+                5,
+                4,
+                4,
+                4,
+                4,
+                4,
+                3,
+                3,
+                3,
+                3,
+                3,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+            ]
         )
     }
     all_types = set(counts)
@@ -97,12 +137,12 @@ def test_emergence_point_peak_and_earliest_within_ci():
     ci = {
         "embedding": (-0.05, 0.05),
         "block_0": (0.0, 0.2),
-        "block_1": (0.38, 0.52),   # overlaps peak's [0.42, 0.58]
-        "block_2": (0.42, 0.58),   # peak
-        "ln_f": (0.8, 1.0),        # excluded from emergence (not a depth point)
+        "block_1": (0.38, 0.52),  # overlaps peak's [0.42, 0.58]
+        "block_2": (0.42, 0.58),  # peak
+        "ln_f": (0.8, 1.0),  # excluded from emergence (not a depth point)
     }
     out = emergence_point(sel, ci)
-    assert out["peak"] == "block_2"               # ln_f ignored despite higher selectivity
+    assert out["peak"] == "block_2"  # ln_f ignored despite higher selectivity
     assert out["earliest_within_peak_ci"] == "block_1"
 
 
@@ -110,9 +150,18 @@ def test_emergence_point_peak_and_earliest_within_ci():
 def test_public_api_reexports_probing_without_shadowing_accuracy():
     import awake.eval as e
 
-    for name in ("assign_control_labels", "control_vector", "balanced_accuracy", "base_rate",
-                 "majority_class", "selectivity", "type_overlap", "emergence_point",
-                 "cluster_bootstrap_ci", "paired_cluster_bootstrap"):
+    for name in (
+        "assign_control_labels",
+        "control_vector",
+        "balanced_accuracy",
+        "base_rate",
+        "majority_class",
+        "selectivity",
+        "type_overlap",
+        "emergence_point",
+        "cluster_bootstrap_ci",
+        "paired_cluster_bootstrap",
+    ):
         assert hasattr(e, name), name
     # existing P4 accuracy must remain (probing must NOT shadow it with a different contract)
     assert e.accuracy([0, None, 2], [0, 1, 2]) == pytest.approx(2 / 3)

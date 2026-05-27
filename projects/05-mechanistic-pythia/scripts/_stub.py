@@ -24,6 +24,8 @@ def tiny_acts(n: int = 60, d: int = 16, seed: int = 0):
         points[name] = (noise + signal).astype(np.float32)
     sent_id = [str(i // 5) for i in range(n)]  # 5 tokens per fake sentence
     words = [f"w{i}" for i in range(n)]
-    number = ["Plur" if (u == "NOUN" and i % 2 == 0) else ("Sing" if u == "NOUN" else "")
-              for i, u in enumerate(upos)]
+    number = [
+        "Plur" if (u == "NOUN" and i % 2 == 0) else ("Sing" if u == "NOUN" else "")
+        for i, u in enumerate(upos)
+    ]
     return points, {"upos": upos, "number": number, "words": words, "sent_id": sent_id}

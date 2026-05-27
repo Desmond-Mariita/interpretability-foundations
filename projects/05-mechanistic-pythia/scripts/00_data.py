@@ -8,11 +8,16 @@ import pyarrow as pa
 from _paths import CONLLU, PREPARED, ensure_dirs, load_config
 from _udparse import parse_conllu
 
-_SCHEMA = pa.schema([
-    ("sent_id", pa.string()), ("text", pa.string()),
-    ("words", pa.list_(pa.string())), ("upos", pa.list_(pa.string())),
-    ("number", pa.list_(pa.string())), ("space_after", pa.list_(pa.bool_())),
-])
+_SCHEMA = pa.schema(
+    [
+        ("sent_id", pa.string()),
+        ("text", pa.string()),
+        ("words", pa.list_(pa.string())),
+        ("upos", pa.list_(pa.string())),
+        ("number", pa.list_(pa.string())),
+        ("space_after", pa.list_(pa.bool_())),
+    ]
+)
 
 
 def rows_to_table(sents: list[dict]) -> pa.Table:

@@ -21,8 +21,9 @@ def main() -> None:  # pragma: no cover - slow path
         acc = {p: [] for p in points}
         meta = {"words": [], "upos": [], "number": [], "sent_id": []}
         for row in df.itertuples():
-            pts, keep = extract_points(model, tok, list(row.words), list(row.space_after),
-                                       cfg["n_blocks"])
+            pts, keep = extract_points(
+                model, tok, list(row.words), list(row.space_after), cfg["n_blocks"]
+            )
             if not pts:
                 continue
             for p in points:

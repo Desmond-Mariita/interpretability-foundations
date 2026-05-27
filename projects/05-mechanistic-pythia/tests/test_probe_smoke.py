@@ -9,8 +9,10 @@ from _stub import tiny_acts
 
 def _linear_fit(x_train, y_train):
     """Trivial injectable fitter: threshold on dim-0 sign (recovers the planted signal)."""
+
     def predict(x):
         return (x[:, 0] > x_train[:, 0].mean()).astype(int)
+
     return predict
 
 
@@ -20,9 +22,13 @@ def test_probe_property_selectivity_rises_with_depth():
     mod = importlib.import_module("20_probe")
     acts, meta = tiny_acts()
     res = mod.probe_property(
-        acts, meta, label_fn=lambda m: [int(u == "NOUN") for u in m["upos"]],
+        acts,
+        meta,
+        label_fn=lambda m: [int(u == "NOUN") for u in m["upos"]],
         subset_fn=lambda m: [True] * len(m["upos"]),
-        fit_predict=_linear_fit, control_seeds=[0, 1], base_rate=1 / 3,
+        fit_predict=_linear_fit,
+        control_seeds=[0, 1],
+        base_rate=1 / 3,
     )
     pts = {r["point"]: r for r in res}
     assert pts["block_1"]["selectivity"] >= pts["embedding"]["selectivity"] + 0.2
@@ -52,7 +58,7 @@ def test_assemble_metrics_shape_and_emergence():
         "sent_id": ["0", "0", "1", "1"],
         "points": {
             "embedding": {"probe": [1, 0, 0, 1], "control": [[1, 0, 0, 1]]},
-            "block_0":   {"probe": [1, 0, 1, 0], "control": [[0, 1, 1, 0]]},
+            "block_0": {"probe": [1, 0, 1, 0], "control": [[0, 1, 1, 0]]},
         },
     }
     out = mod.assemble_property_metrics(per_token, n_resamples=100, seed=0)

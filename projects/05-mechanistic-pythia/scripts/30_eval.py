@@ -44,21 +44,32 @@ def assemble_property_metrics(per_token: dict, n_resamples: int, seed: int) -> d
     groups = per_token["sent_id"]
     points_out, sel, sel_ci = [], {}, {}
     for point, preds in per_token["points"].items():
-        plo, pmean, phi = cluster_bootstrap_ci(gold, preds["probe"], groups, _bal,
-                                               n_resamples=n_resamples, seed=seed)
+        plo, pmean, phi = cluster_bootstrap_ci(
+            gold, preds["probe"], groups, _bal, n_resamples=n_resamples, seed=seed
+        )
         # control: average balanced acc over seeds; CI from the first seed's grouped bootstrap
         ctrl_bas = [_bal(gold, c) for c in preds["control"]]
         cmean = float(np.mean(ctrl_bas))
         cspread = float(np.std(ctrl_bas))
-        clo, _cmean, chi = cluster_bootstrap_ci(gold, preds["control"][0], groups, _bal,
-                                                n_resamples=n_resamples, seed=seed)
+        clo, _cmean, chi = cluster_bootstrap_ci(
+            gold, preds["control"][0], groups, _bal, n_resamples=n_resamples, seed=seed
+        )
         # selectivity CI consistent with the K-mean-control point estimate
-        slo, shi = _selectivity_ci(gold, preds["probe"], preds["control"], groups,
-                                   n_resamples=n_resamples, seed=seed)
-        points_out.append({"point": point, "balanced_acc": pmean, "balanced_acc_ci": [plo, phi],
-                           "control_balanced_acc": cmean, "control_ci": [clo, chi],
-                           "control_seed_spread": cspread, "selectivity": pmean - cmean,
-                           "selectivity_ci": [slo, shi]})
+        slo, shi = _selectivity_ci(
+            gold, preds["probe"], preds["control"], groups, n_resamples=n_resamples, seed=seed
+        )
+        points_out.append(
+            {
+                "point": point,
+                "balanced_acc": pmean,
+                "balanced_acc_ci": [plo, phi],
+                "control_balanced_acc": cmean,
+                "control_ci": [clo, chi],
+                "control_seed_spread": cspread,
+                "selectivity": pmean - cmean,
+                "selectivity_ci": [slo, shi],
+            }
+        )
         sel[point] = pmean - cmean
         sel_ci[point] = (slo, shi)
     return {"points": points_out, "emergence": emergence_point(sel, sel_ci)}

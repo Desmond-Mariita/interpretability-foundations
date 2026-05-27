@@ -68,8 +68,14 @@ def probe_property(
             cpred = fit_predict(x_tr, c_tr)
             ctrl_bas.append(balanced_accuracy(list(c_te), list(cpred(x_te))))
         ctrl_ba = float(np.mean(ctrl_bas))
-        results.append({"point": point, "balanced_acc": probe_ba,
-                        "control_balanced_acc": ctrl_ba, "selectivity": probe_ba - ctrl_ba})
+        results.append(
+            {
+                "point": point,
+                "balanced_acc": probe_ba,
+                "control_balanced_acc": ctrl_ba,
+                "selectivity": probe_ba - ctrl_ba,
+            }
+        )
     return results
 
 
@@ -80,12 +86,15 @@ def sklearn_fitter(C: float, max_iter: int, random_state: int):  # pragma: no co
 
     def fit_predict(x_train, y_train):
         scaler = StandardScaler().fit(x_train)
-        clf = LogisticRegression(C=C, class_weight="balanced", max_iter=max_iter,
-                                 random_state=random_state).fit(scaler.transform(x_train), y_train)
+        clf = LogisticRegression(
+            C=C, class_weight="balanced", max_iter=max_iter, random_state=random_state
+        ).fit(scaler.transform(x_train), y_train)
 
         def predict(x):
             return clf.predict(scaler.transform(x))
+
         return predict
+
     return fit_predict
 
 
