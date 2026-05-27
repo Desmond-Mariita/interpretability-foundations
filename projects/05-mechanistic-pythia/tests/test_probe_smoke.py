@@ -55,10 +55,11 @@ def test_assemble_metrics_shape_and_emergence():
     # synthetic per-token preds for 2 points, one property, 2 sentences
     per_token = {
         "gold": [1, 0, 1, 0],
+        "control_gold": [[0, 1, 0, 1]],  # one control seed; scored against its OWN labels
         "sent_id": ["0", "0", "1", "1"],
         "points": {
             "embedding": {"probe": [1, 0, 0, 1], "control": [[1, 0, 0, 1]]},
-            "block_0": {"probe": [1, 0, 1, 0], "control": [[0, 1, 1, 0]]},
+            "block_0": {"probe": [1, 0, 1, 0], "control": [[0, 1, 0, 1]]},  # = control_gold -> ba 1.0
         },
     }
     out = mod.assemble_property_metrics(per_token, n_resamples=100, seed=0)

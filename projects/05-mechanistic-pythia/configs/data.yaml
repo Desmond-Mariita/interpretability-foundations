@@ -8,6 +8,6 @@ files:
   test: "en_ewt-ud-test.conllu"
 # SHA-256 of each file at ud_tag; fill in at first run (00_data prints them) then pin here.
 sha256:
-  train: ""
-  dev: ""
-  test: ""
+  train: "c081876811507cb9437000ea5e6a1741795d8fe8755537ef024bd3b4a713ff14"
+  dev: "dd514122385fd3374dd10051ddaf477c957d3da0bba48931d6f969820ece233f"
+  test: "5e0044aa9b786bfb81dbd5687400583a61635a65839e747b59b2ec907c8ab662"

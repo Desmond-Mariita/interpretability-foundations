@@ -98,13 +98,133 @@ def sklearn_fitter(C: float, max_iter: int, random_state: int):  # pragma: no co
     return fit_predict
 
 
+def _label_subset(prop: str):  # pragma: no cover - slow path
+    """Return (label_fn, subset_fn) for a property given a meta dict."""
+    if prop == "is_noun":
+        return (lambda m: [int(u == "NOUN") for u in m["upos"]], lambda m: [True] * len(m["upos"]))
+    if prop == "is_verb":
+        return (lambda m: [int(u == "VERB") for u in m["upos"]], lambda m: [True] * len(m["upos"]))
+    # noun_number: among NOUN tokens with Number in {Plur, Sing}; label Plur=1
+    return (
+        lambda m: [int(n == "Plur") for n in m["number"]],
+        lambda m: [
+            u == "NOUN" and n in ("Plur", "Sing")
+            for u, n in zip(m["upos"], m["number"], strict=True)
+        ],
+    )
+
+
+def _stratified_cap(y, cap: int, seed: int):  # pragma: no cover - slow path
+    """Boolean mask keeping <= cap rows, proportionally per class (seeded)."""
+    import numpy as np
+
+    y = np.asarray(y)
+    if y.size <= cap:
+        return np.ones(y.size, bool)
+    rng = np.random.default_rng(seed)
+    keep = np.zeros(y.size, bool)
+    for cls in np.unique(y):
+        idx = np.flatnonzero(y == cls)
+        n = min(idx.size, max(1, round(cap * idx.size / y.size)))
+        keep[rng.choice(idx, size=n, replace=False)] = True
+    return keep
+
+
 def main() -> None:  # pragma: no cover - slow path
-    """Load per-point acts, choose C on dev per property, probe+control on test, store raw preds."""
-    # Full wiring: load ACTS/<split>/<point>.npy + meta; for each property build label_fn/subset_fn;
-    # grid-search C on dev (balanced acc on dev probe); run probe_property on test with the chosen C
-    # and config control seeds; persist per-token (gold, probe_pred, control_preds, sent_id) to
-    # outputs/probe/<property>.npz for 30_eval's cluster bootstrap. (Mechanical; see spec section 5/7.)
-    raise NotImplementedError  # implemented during the real-run task, exercised by `slow`/real run
+    """Load per-point acts, choose C on dev per property, probe+control on test, persist preds."""
+    import json
+    import pickle
+
+    import numpy as np
+    import pandas as pd
+    from _paths import ACTS, OUTPUTS, ensure_dirs, load_config
+
+    from awake.eval.probing import base_rate, majority_class, type_overlap
+
+    cfg = load_config("probe")
+    points = ["embedding", *[f"block_{i}" for i in range(cfg["n_blocks"])], "ln_f"]
+
+    def fitter(c):
+        return sklearn_fitter(c, cfg["probe"]["max_iter"], cfg["probe"]["random_state"])
+
+    acts, meta = {}, {}
+    for split in ("train", "dev", "test"):
+        d = ACTS / split
+        acts[split] = {p: np.load(d / f"{p}.npy") for p in points}
+        mdf = pd.read_parquet(d / "meta.parquet")
+        meta[split] = {c: list(mdf[c]) for c in ("words", "upos", "number", "sent_id")}
+
+    ensure_dirs(OUTPUTS / "probe")
+    chosen_c = {}
+    for prop in cfg["properties"]:
+        label_fn, subset_fn = _label_subset(prop)
+        sub = {s: np.array(subset_fn(meta[s]), bool) for s in ("train", "dev", "test")}
+
+        def keep(split, seq, sub=sub):
+            return [v for v, k in zip(seq, sub[split], strict=True) if k]
+
+        y = {s: np.array(label_fn(meta[s]))[sub[s]] for s in ("train", "dev", "test")}
+        words = {s: keep(s, meta[s]["words"]) for s in ("train", "dev", "test")}
+        sent_te = keep("test", meta["test"]["sent_id"])
+
+        cap = _stratified_cap(y["train"], cfg["train_token_cap"], cfg["train_cap_seed"])
+        y_tr = y["train"][cap]
+        words_tr = [w for w, k in zip(words["train"], cap, strict=True) if k]
+        underpowered = prop == "noun_number" and int(y_tr.size) < cfg["noun_number_min_train"]
+
+        # Choose C on dev at a representative mid-depth point.
+        rep = "block_6"
+        x_tr_rep = acts["train"][rep][sub["train"]][cap].astype(np.float64)
+        x_dev_rep = acts["dev"][rep][sub["dev"]].astype(np.float64)
+        best_c, best_ba = cfg["probe"]["C_grid"][0], -1.0
+        for c in cfg["probe"]["C_grid"]:
+            pred = fitter(c)(x_tr_rep, y_tr)
+            ba = balanced_accuracy(list(y["dev"]), list(pred(x_dev_rep)))
+            if ba > best_ba:
+                best_ba, best_c = ba, c
+        chosen_c[prop] = best_c
+        fit_predict = fitter(best_c)
+
+        counts: dict[str, int] = {}
+        for w in words_tr:
+            counts[w] = counts.get(w, 0) + 1
+        all_types = set(words_tr) | set(words["dev"]) | set(words["test"])
+        br = float(base_rate(list(y_tr)))
+        cmaps = [assign_control_labels(all_types, counts, br, s) for s in cfg["control"]["seeds"]]
+        c_tr = [np.array(control_vector(words_tr, cm)) for cm in cmaps]
+        c_te = [np.array(control_vector(words["test"], cm)) for cm in cmaps]
+
+        per_token = {
+            "gold": [int(v) for v in y["test"]],
+            "control_gold": [[int(v) for v in ct] for ct in c_te],
+            "sent_id": sent_te,
+            "points": {},
+        }
+        for p in points:
+            x_tr = acts["train"][p][sub["train"]][cap].astype(np.float64)
+            x_te = acts["test"][p][sub["test"]].astype(np.float64)
+            probe_pred = [int(v) for v in fit_predict(x_tr, y_tr)(x_te)]
+            ctrl_preds = [[int(v) for v in fit_predict(x_tr, ct)(x_te)] for ct in c_tr]
+            per_token["points"][p] = {"probe": probe_pred, "control": ctrl_preds}
+
+        maj = majority_class(list(y_tr))
+        info = {
+            "base_rate": br,
+            "majority_baseline": float(np.mean(y["test"] == maj)),
+            "train_n": int(y_tr.size),
+            "test_n": int(y["test"].size),
+            "chosen_C": best_c,
+            "underpowered": bool(underpowered),
+            "type_overlap": type_overlap(words_tr, words["test"]),
+            "control_seeds": cfg["control"]["seeds"],
+        }
+        with open(OUTPUTS / "probe" / f"{prop}.pkl", "wb") as fh:
+            pickle.dump({"per_token": per_token, "info": info}, fh)
+        print(
+            f"{prop}: C={best_c} train_n={y_tr.size} test_n={y['test'].size} "
+            f"base_rate={br:.3f}{' UNDERPOWERED' if underpowered else ''}"
+        )
+    (OUTPUTS / "probe" / "chosen_C.json").write_text(json.dumps(chosen_c))
 
 
 if __name__ == "__main__":  # pragma: no cover

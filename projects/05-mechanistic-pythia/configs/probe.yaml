@@ -1,5 +1,5 @@
 model_id: "EleutherAI/pythia-160m"
-model_revision: "main"          # pin to a commit SHA after first run
+model_revision: "50f5173d932e8e61f858120bcb800b97af589f46"  # pinned pythia-160m commit
 n_blocks: 12
 properties: ["is_noun", "is_verb", "noun_number"]
 alignment: "last"               # last overlapping subword
