@@ -35,3 +35,17 @@ def test_tiny_acts_shapes():
     acts, meta = tiny_acts()
     assert set(acts) >= {"embedding", "block_0", "block_1"}
     assert acts["embedding"].shape[0] == len(meta["upos"])
+
+
+@pytest.mark.smoke
+def test_rows_to_table_roundtrip_preserves_empty_strings():
+    """Verify rows_to_table roundtrip keeps empty strings (not null) via explicit schema."""
+    import importlib
+
+    mod = importlib.import_module("00_data")
+    sents = [{"sent_id": "1", "text": "a b", "words": ["a", "b"], "upos": ["DET", "NOUN"],
+              "number": ["", "Sing"], "space_after": [True, True]}]
+    tbl = mod.rows_to_table(sents)
+    df = tbl.to_pandas()
+    assert list(df.loc[0, "number"]) == ["", "Sing"]      # empty string survived (not null)
+    assert list(df.loc[0, "upos"]) == ["DET", "NOUN"]
