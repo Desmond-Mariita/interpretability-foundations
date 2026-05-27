@@ -8,6 +8,11 @@ All notable changes to this repository are documented here. Format follows
 
 ### Added
 
+#### Project 5 (`05-mechanistic-pythia`)
+- Project 5 (`05-mechanistic-pythia`): per-layer linear probes on Pythia-160M with
+  Hewitt & Liang control tasks (selectivity by depth) on UD English-EWT; pure
+  `awake.eval.probing` core + cluster-bootstrap helpers.
+
 #### Project 4 (`04-vqa-aokvqa`)
 - Project 4 (`04-vqa-aokvqa`): caption-then-LLM vs direct-VLM A-OKVQA pipelines with a
   paired-baseline vision-ablation probe (consistency gain Delta), inter-pipeline divergence,
