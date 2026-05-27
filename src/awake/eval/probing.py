@@ -55,7 +55,7 @@ def selectivity(probe_metric: float, control_metric: float) -> float:
 def assign_control_labels(
     all_types: set[str],
     train_counts: dict[str, int],
-    base_rate: float,
+    target_base_rate: float,
     seed: int,
 ) -> dict[str, int]:
     """Hewitt-Liang control: a deterministic random binary label for every type.
@@ -63,12 +63,12 @@ def assign_control_labels(
     Labels every type in ``all_types`` (the train+dev+test union, so no scored token is ever
     unseen). The positive share is matched in TOKEN space: types are visited in a seeded-random
     order and assigned 1 until their cumulative TRAIN token mass (from ``train_counts``, 0 for
-    types absent from train) reaches ``base_rate`` of the total train mass; the rest get 0.
+    types absent from train) reaches ``target_base_rate`` of the total train mass; the rest get 0.
 
     Args:
         all_types: Every word type that will be scored (train union dev union test).
         train_counts: Train-token frequency per type (missing -> 0).
-        base_rate: Target positive share in token space.
+        target_base_rate: Target positive share in token space.
         seed: RNG seed (determinism).
 
     Returns:
@@ -77,7 +77,7 @@ def assign_control_labels(
     types = sorted(all_types)
     random.Random(seed).shuffle(types)
     total = sum(train_counts.values())
-    target = base_rate * total
+    target = target_base_rate * total
     labels: dict[str, int] = {}
     acc = 0.0
     for t in types:
@@ -104,9 +104,6 @@ def control_vector(words: list[str], type_to_label: dict[str, int]) -> list[int]
             since the map must be built over the full union).
     """
     return [type_to_label[w] for w in words]
-
-
-_DEPTH_PREFIXES = ("embedding", "block_")
 
 
 def type_overlap(train_words: list[str], test_words: list[str]) -> dict:
@@ -153,4 +150,4 @@ def emergence_point(
         lo, hi = sel_ci_by_point[p]
         if lo <= hi_pk and lo_pk <= hi:
             return {"peak": peak, "earliest_within_peak_ci": p}
-    return {"peak": peak, "earliest_within_peak_ci": peak}
+    raise AssertionError("unreachable: peak must be within its own CI")  # pragma: no cover

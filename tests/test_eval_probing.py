@@ -47,17 +47,24 @@ def test_base_rate_majority_class_selectivity():
 
 @pytest.mark.unit
 def test_assign_control_labels_token_rate_matched_and_deterministic():
-    # "the" is very frequent; matching in TOKEN space must account for that.
-    counts = {"the": 100, "dog": 10, "cat": 10, "run": 10, "sit": 10}
+    # Realistic mild-Zipf spread (~40 types, no type exceeds ~10% of tokens), so the
+    # token-rate match is tight rather than dominated by a single frequent type.
+    counts = {
+        f"t{i:02d}": c
+        for i, c in enumerate(
+            [10, 9, 9, 8, 8, 8, 7, 7, 7, 7, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5,
+             4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+        )
+    }
     all_types = set(counts)
-    m1 = assign_control_labels(all_types, counts, base_rate=0.3, seed=0)
-    m2 = assign_control_labels(all_types, counts, base_rate=0.3, seed=0)
+    m1 = assign_control_labels(all_types, counts, target_base_rate=0.3, seed=0)
+    m2 = assign_control_labels(all_types, counts, target_base_rate=0.3, seed=0)
     assert m1 == m2  # deterministic
     assert set(m1) == all_types and set(m1.values()) <= {0, 1}
     # realised TOKEN-level positive share within tolerance of 0.3
     tot = sum(counts.values())
     pos = sum(counts[t] for t, lbl in m1.items() if lbl == 1)
-    assert abs(pos / tot - 0.3) < 0.65
+    assert abs(pos / tot - 0.3) < 0.12
     assert assign_control_labels(all_types, counts, 0.3, seed=1) != m1  # seed changes map
 
 
@@ -76,6 +83,12 @@ def test_type_overlap_seen_and_oov_token_rates():
     out = type_overlap(train, test)
     assert out["seen_type_token_rate"] == pytest.approx(0.5)
     assert out["oov_type_token_rate"] == pytest.approx(0.5)
+
+
+@pytest.mark.unit
+def test_type_overlap_empty_test_is_zero():
+    out = type_overlap(["a", "b"], [])
+    assert out == {"seen_type_token_rate": 0.0, "oov_type_token_rate": 0.0}
 
 
 @pytest.mark.unit
