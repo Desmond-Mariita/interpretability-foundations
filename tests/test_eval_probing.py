@@ -2,8 +2,16 @@
 
 import pytest
 
-from awake.eval.probing import assign_control_labels, balanced_accuracy, base_rate, control_vector
-from awake.eval.probing import emergence_point, majority_class, selectivity, type_overlap
+from awake.eval.probing import (
+    assign_control_labels,
+    balanced_accuracy,
+    base_rate,
+    control_vector,
+    emergence_point,
+    majority_class,
+    selectivity,
+    type_overlap,
+)
 
 
 @pytest.mark.unit
@@ -83,3 +91,15 @@ def test_emergence_point_peak_and_earliest_within_ci():
     out = emergence_point(sel, ci)
     assert out["peak"] == "block_2"               # ln_f ignored despite higher selectivity
     assert out["earliest_within_peak_ci"] == "block_1"
+
+
+@pytest.mark.unit
+def test_public_api_reexports_probing_without_shadowing_accuracy():
+    import awake.eval as e
+
+    for name in ("assign_control_labels", "control_vector", "balanced_accuracy", "base_rate",
+                 "majority_class", "selectivity", "type_overlap", "emergence_point",
+                 "cluster_bootstrap_ci", "paired_cluster_bootstrap"):
+        assert hasattr(e, name), name
+    # existing P4 accuracy must remain (probing must NOT shadow it with a different contract)
+    assert e.accuracy([0, None, 2], [0, 1, 2]) == pytest.approx(2 / 3)
