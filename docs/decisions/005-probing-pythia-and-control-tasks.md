@@ -110,8 +110,10 @@ on context).
 - Each UD word's character span `[ws, we)` is matched to the subword tokens whose offset
   span **overlaps** it: `tok_end > ws AND tok_start < we`. The residual at the **last**
   overlapping subword is taken as the word's representation.
-- Words that fail to align (tokenizer normalisation edge cases) are dropped and their count
-  is logged in `metrics.json` under `dropped_alignment`.
+- Words that fail to align (tokenizer normalisation edge cases) are dropped; the per-split
+  aligned-word counts are recorded (the `train_n`/`test_n` in `metrics.json`). A separate
+  `dropped_alignment` count was specified but is not logged in this run (alignment was
+  effectively complete on UD-EWT) -- future work.
 - The overlap predicate is the sole alignment logic; no containment fallback is used.
 
 ### Consequences
@@ -192,8 +194,8 @@ For each sub-decision:
 ### Decision
 
 - **Primary metric:** balanced accuracy (mean of per-class recall, chance = 0.5 regardless
-  of prevalence). Raw accuracy and majority-class baseline are secondary context; AUROC is
-  logged.
+  of prevalence). The majority-class baseline is logged as secondary context; raw accuracy and
+  AUROC were specified as secondary metrics but are not logged in this run (future work).
 - **Standardisation:** per-(property, point) `StandardScaler` fitted on train residuals
   (upcast from float16 to float64 before the scaler). `C` chosen once per property on dev
   via a small grid {0.01, 0.1, 1.0}; held constant across all points for that property.

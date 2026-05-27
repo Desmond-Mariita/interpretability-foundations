@@ -124,7 +124,10 @@ frequency). Repeated over K=5 seeds; control balanced accuracy is averaged over 
 
 - **Primary:** balanced accuracy (mean of per-class recall; chance = 0.5 regardless of
   prevalence). Robust to the `is_verb` / `is_noun` class imbalance.
-- **Secondary:** raw accuracy, AUROC, majority-class baseline.
+- **Secondary:** majority-class baseline (train-majority scored on test; logged in
+  `metrics.json`). Raw accuracy and AUROC were specified as secondary context but are **not
+  logged in this run** (the persisted per-token predictions are hard labels, so AUROC would
+  require re-running with probabilities) -- future work.
 - **CIs:** paired sentence-cluster bootstrap (2,000 resamples). Sentences are the resampling
   unit (tokens within a sentence are correlated). Probe and control are recomputed on the
   same resampled sentences (paired), giving correct variance estimates for selectivity.
@@ -269,7 +272,8 @@ not a sharp transition: by the earliest-within-peak-CI rule, `is_verb` emerges b
 balanced accuracy is already near-ceiling at the **embedding** layer (is_noun 0.934,
 is_verb 0.949, noun_number 0.983) and stays
 roughly flat (or dips slightly at the deepest blocks). What changes with depth is the
-**control** balanced accuracy, which **declines monotonically** (e.g. is_noun
+**control** balanced accuracy, which **declines with depth** (monotonically for is_noun and
+is_verb; with one negligible blip for noun_number) (e.g. is_noun
 0.849 at the embedding -> 0.748 at `block_11`).
 Interpreted through the necessary-not-sufficient lens (section 1 / section 6): these
 properties are *linearly present from the embedding onward*, but the **deeper residual stream
@@ -299,8 +303,9 @@ evidence the model *uses* the feature.
 
 **Last-subword pooling.** Last-subword pooling entangles emergence with subword count and,
 for `noun_number`, with the plural morpheme. `first`/`mean` pooling is a config option; a
-`last`-vs-`first` sensitivity check is reported if time permits, else flagged as future work.
-The single-vs-multi-subword split per property is reported in `metrics.json`.
+`last`-vs-`first` (and mean) pooling sensitivity check was **not run** here -- future work. The
+single-vs-multi-subword split per property is likewise **not logged** in this run's
+`metrics.json` -- future work.
 
 **Pre-LN / `ln_f`.** The 13 depth points are pre-final-LN residual states; `ln_f` (what
 the unembedding reads) is reported separately. Layer 0 = token embeddings (no transformer
