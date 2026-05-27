@@ -1,10 +1,8 @@
 """Smoke tests for UD parsing + stub fixtures (no network, no model)."""
 
 import pytest
-
 from _stub import tiny_acts
 from _udparse import parse_conllu
-
 
 _SAMPLE = """\
 # sent_id = 1
@@ -57,7 +55,6 @@ def test_align_last_subword_uses_overlap_not_containment():
     from _models import align_words_to_tokens
 
     # offsets mimic byte-level BPE: leading space attached to the token (start one before word)
-    words = ["hello", "world"]
     word_spans = [(0, 5), (6, 11)]              # "hello world", space at idx 5
     token_offsets = [(0, 5), (5, 11)]            # token 1 = "hello", token 2 = " world"
     # last overlapping token for each word: word0 -> tok0; word1 -> tok1 (overlap, not containment)

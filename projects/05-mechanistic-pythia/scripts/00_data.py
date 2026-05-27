@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 
 import pyarrow as pa
-
 from _paths import CONLLU, PREPARED, ensure_dirs, load_config
 from _udparse import parse_conllu
 
@@ -26,7 +25,7 @@ def _fetch(url: str, dest, sha: str) -> str:  # pragma: no cover - network/slow
     import urllib.request
 
     if not dest.exists():
-        urllib.request.urlretrieve(url, dest)  # noqa: S310 - pinned raw.githubusercontent URL
+        urllib.request.urlretrieve(url, dest)
     got = hashlib.sha256(dest.read_bytes()).hexdigest()
     if sha and got != sha:
         raise ValueError(f"SHA-256 mismatch for {dest.name}: expected {sha}, got {got}")

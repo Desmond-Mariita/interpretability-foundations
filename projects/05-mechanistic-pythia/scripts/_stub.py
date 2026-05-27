@@ -6,8 +6,9 @@ import numpy as np
 
 
 def tiny_acts(n: int = 60, d: int = 16, seed: int = 0):
-    """Return (acts, meta): per-point residual matrices where the is_noun label is linearly
-    encoded ONLY at deep points, so selectivity should rise with depth.
+    """Return (acts, meta): per-point residual matrices with is_noun linearly encoded at depth.
+
+    Signal strength grows with depth so selectivity should rise with depth.
 
     acts: {point: (n, d) float32}; meta: {"upos": [...], "number": [...], "words": [...],
     "sent_id": [...]}.
