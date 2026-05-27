@@ -58,5 +58,5 @@ def test_assemble_metrics_shape_and_emergence():
     out = mod.assemble_property_metrics(per_token, n_resamples=100, seed=0)
     assert {"points", "emergence"} <= set(out)
     pts = {p["point"]: p for p in out["points"]}
-    assert "selectivity_ci" in pts["block_0"]
+    assert {"selectivity_ci", "control_ci", "control_seed_spread"} <= set(pts["block_0"])
     assert out["emergence"]["peak"] in ("embedding", "block_0")

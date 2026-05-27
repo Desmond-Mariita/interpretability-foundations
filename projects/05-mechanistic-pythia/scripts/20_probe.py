@@ -13,10 +13,6 @@ import numpy as np
 from awake.eval.probing import assign_control_labels, balanced_accuracy, control_vector
 
 
-def _train_test_split_idx(meta_train, meta_test, subset_fn):
-    return np.array(subset_fn(meta_train), bool), np.array(subset_fn(meta_test), bool)
-
-
 def probe_property(
     acts_by_split: dict,
     meta_by_split: dict,
@@ -25,11 +21,17 @@ def probe_property(
     fit_predict: Callable,
     control_seeds: list[int],
     base_rate: float,
+    extra_type_words: list[str] | None = None,
 ) -> list[dict]:
     """Return per-point {point, balanced_acc, control_balanced_acc, selectivity} for one property.
 
     ``acts_by_split``/``meta_by_split`` map 'train'/'test' -> {point: (n,d)} / meta dict. For the
     smoke stub a single split is reused for train and test.
+
+    ``extra_type_words`` lists additional surface forms (e.g. dev-split words seen during the
+    dev C-grid search) whose types must also appear in the control map so ``control_vector``
+    never KeyErrors on them; spec section 5 requires the control map to cover the train+dev+test
+    union of word types.
     """
     # Support both split-keyed dicts {"train": ..., "test": ...} and bare meta/acts dicts
     # (the smoke stub passes acts/meta directly, so fall back to the whole dict as "all").
@@ -50,7 +52,7 @@ def probe_property(
     counts: dict[str, int] = {}
     for w in words_tr:
         counts[w] = counts.get(w, 0) + 1
-    all_types = set(words_tr) | set(words_te)
+    all_types = set(words_tr) | set(words_te) | set(extra_type_words or [])
 
     results = []
     for point in tr_acts:
