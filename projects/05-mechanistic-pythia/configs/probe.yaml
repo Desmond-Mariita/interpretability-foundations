@@ -1,0 +1,17 @@
+model_id: "EleutherAI/pythia-160m"
+model_revision: "50f5173d932e8e61f858120bcb800b97af589f46"  # pinned pythia-160m commit
+n_blocks: 12
+properties: ["is_noun", "is_verb", "noun_number"]
+alignment: "last"               # last overlapping subword
+probe:
+  C_grid: [0.01, 0.1, 1.0]      # chosen once per property on dev
+  max_iter: 2000
+  random_state: 0
+control:
+  seeds: [0, 1, 2, 3, 4]        # K=5
+train_token_cap: 60000          # class-stratified seeded cap for probe fits
+train_cap_seed: 0
+bootstrap:
+  n_resamples: 2000
+  seed: 0
+noun_number_min_train: 3000     # below this -> flag underpowered
