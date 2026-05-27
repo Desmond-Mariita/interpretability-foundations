@@ -229,10 +229,13 @@ plt.show()
 # %% [markdown]
 # ## 3. Token heatmaps — qualitative inspection
 #
-# For 1–2 test examples we render a per-token colour map: each token is coloured by
-# its **normalised attribution score** (range 0–1, warm = high, cool = low).  All
-# explainers are shown side by side so divergences are immediately visible.  The random
-# baseline column makes the floor concrete.
+# For 1–2 test examples we first show the **reconstructed model input as readable text**
+# (detokenised from the RoBERTa byte-level tokens the explainers scored — no raw review
+# file is read), with the headline explainer's top-15% tokens highlighted so the selected
+# rationale reads as actual review phrases.  We then render a per-token colour map: each
+# token is coloured by its **normalised attribution score** (range 0–1, warm = high, cool
+# = low).  All explainers are shown side by side so divergences are immediately visible.
+# The random baseline column makes the floor concrete.
 #
 # The examples are picked as the first two from the evaluation subsample that satisfy
 # `truncation_coverage >= 0.8` so that the gold rationale mask is largely intact in the
@@ -311,6 +314,56 @@ def render_token_heatmap(
     return HTML(html)
 
 
+_SPECIAL_TOKENS = {"<s>", "</s>", "<pad>", "<unk>", "<mask>"}
+
+
+def reconstruct_text(tokens: list[str]) -> str:
+    """Detokenise RoBERTa byte-level BPE tokens back to readable text.
+
+    'G-with-dot' marks a leading space and 'C-with-dot' a newline in RoBERTa's
+    byte-level vocabulary; special tokens are dropped. The result is the actual model
+    input, made legible (no raw review file is read -- this is the tokenised input the
+    explainers scored, rendered back to text).
+    """
+    parts = []
+    for tok in tokens:
+        if tok in _SPECIAL_TOKENS:
+            continue
+        lead = " " if tok.startswith("Ġ") else ""
+        parts.append(lead + tok.replace("Ġ", "").replace("Ċ", " "))
+    return "".join(parts).strip()
+
+
+def render_readable_highlight(
+    tokens: list[str],
+    norm_scores: np.ndarray,
+    top_frac: float = 0.15,
+) -> HTML:
+    """Render the reconstructed review with the top-scoring tokens highlighted inline.
+
+    Maps each token's (normalised) attribution onto the readable text, so the rationale
+    an explainer selected is visible as highlighted words rather than as an abstract
+    subword grid.
+    """
+    scores = np.asarray(norm_scores, dtype=float)
+    thresh = float(np.quantile(scores, 1.0 - top_frac)) if scores.size else 1.1
+    spans = []
+    for tok, sc in zip(tokens, scores, strict=False):
+        if tok in _SPECIAL_TOKENS:
+            continue
+        lead = " " if tok.startswith("Ġ") else ""
+        word = tok.replace("Ġ", "").replace("Ċ", " ")
+        if sc >= thresh:
+            spans.append(f'{lead}<mark style="background:#ffd54a;padding:0 1px">{word}</mark>')
+        else:
+            spans.append(lead + word)
+    body = "".join(spans).strip()
+    return HTML(
+        '<div style="font-family:Georgia,serif;font-size:13px;line-height:1.7;'
+        f'max-width:760px">{body}</div>'
+    )
+
+
 # %%
 # ---------------------------------------------------------------------------
 # Load attribution caches and prepared test data; render heatmaps
@@ -335,10 +388,39 @@ if not _skip_heatmaps:
         if not _ids:
             _ids = subsample.index.tolist()[:HEATMAP_N]
 
+        # Headline explainer for the readable-text highlight (fall back to first present).
+        _highlight_expl = next(
+            (e for e in ("integrated_gradients", *_EXPLAINER_ORDER) if e in _attr_caches),
+            None,
+        )
+
         for _n, example_id in enumerate(_ids):
             row = subsample.loc[example_id]
+            _label_txt = "hateful/positive (1)" if int(row["label"]) == 1 else "benign/negative (0)"
             print(f"\n--- Example {_n + 1} (id={example_id}) ---")
-            print(f"Label: {row['label']}  |  coverage: {row['truncation_coverage']:.2f}")
+            print(f"Label: {row['label']} ({_label_txt})  |  coverage: {row['truncation_coverage']:.2f}")
+
+            # Readable reconstruction with the headline explainer's top tokens highlighted,
+            # so the rationale is visible as actual review phrases (not just a subword grid).
+            if _highlight_expl is not None:
+                _hl_rows = (
+                    _attr_caches[_highlight_expl]
+                    .query("example_id == @example_id")
+                    .sort_values("token_idx")
+                )
+                if not _hl_rows.empty:
+                    _hl_toks = _hl_rows["token_str"].tolist()
+                    _hl_raw = _hl_rows["score"].to_numpy(dtype=float)
+                    _lo, _hi = _hl_raw.min(), _hl_raw.max()
+                    _hl_norm = (
+                        (_hl_raw - _lo) / (_hi - _lo)
+                        if _hi > _lo
+                        else np.full_like(_hl_raw, 0.5)
+                    )
+                    print(f"  Reconstructed input (top-15% tokens by {_highlight_expl} highlighted):")
+                    display(render_readable_highlight(_hl_toks, _hl_norm))
+
+            print("  Per-explainer subword attribution (first 60 tokens):")
             for expl_name in _EXPLAINER_ORDER:
                 df_cache = _attr_caches.get(expl_name)
                 if df_cache is None:

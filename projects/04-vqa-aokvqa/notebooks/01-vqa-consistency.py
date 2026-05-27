@@ -308,7 +308,116 @@ for pair_key, div_data in divergence_data.items():
     print(f"  {pair_key:<12}  {overall:>8.4f}  [{oci_lo:.4f}, {oci_hi:.4f}]")
 
 # %% [markdown]
-# ## 3. Filtered subset (leakage-free)
+# ## 3. Worked example: how Delta fires on a single item
+#
+# The aggregate Delta above is abstract. This section walks through one real A-OKVQA
+# validation item to make the mechanism concrete. A-OKVQA is open, and the item is shown
+# **as text only** -- the question, choices, the BLIP-2 caption, and each pipeline arm's
+# generated answer/explanation. **No image is loaded or committed.**
+#
+# We pick a Pipeline A item where (a) the original answer is correct, (b) re-answering with
+# the image removed **but the model's own explanation supplied** reproduces that answer, yet
+# (c) re-answering with the image removed **and no explanation** does not. That is exactly
+# the case Delta is built to surface: the answer was recoverable from the self-rationale,
+# not from the (now absent) visual evidence.
+
+# %%
+# ---------------------------------------------------------------------------
+# Worked example (text only; A-OKVQA is open, no image loaded or committed).
+# Reads the per-item parquets under outputs/gen/; skips gracefully if absent.
+# ---------------------------------------------------------------------------
+import math  # noqa: E402
+
+import pandas as pd  # noqa: E402
+
+_GEN = PROJECT_ROOT / "outputs" / "gen"
+_PREP = PROJECT_ROOT / "outputs" / "prepared" / "val.parquet"
+_LETTERS = "ABCD"
+
+
+def _is_idx(x) -> bool:
+    """True if x is a usable choice index (not None / not NaN)."""
+    return x is not None and not (isinstance(x, float) and math.isnan(x))
+
+
+_needed = [
+    _PREP,
+    _GEN / "A.parquet",
+    _GEN / "A_ablated_expl.parquet",
+    _GEN / "A_ablated_noexpl.parquet",
+]
+if not all(p.exists() for p in _needed):
+    print(
+        "Per-item parquets not found under outputs/gen/ -- skipping the worked example.\n"
+        "(The aggregate metrics above come from outputs/metrics.json and are unaffected.)\n"
+        "Run 10_run_pipelines.py + 20_probe.py to populate them."
+    )
+else:
+    _prep = pd.read_parquet(_PREP).set_index("id")
+    _gen = pd.read_parquet(_GEN / "A.parquet").set_index("id")
+    _abl_e = pd.read_parquet(_GEN / "A_ablated_expl.parquet").set_index("id")
+    _abl_n = pd.read_parquet(_GEN / "A_ablated_noexpl.parquet").set_index("id")
+
+    # Candidates: original correct; with-expl ablation reproduces it; no-expl does not.
+    _candidates = []
+    for _id in _gen.index:
+        if _id not in _prep.index:
+            continue
+        _orig = _gen.loc[_id, "answer_idx"]
+        _gold = _prep.loc[_id, "correct_choice_idx"]
+        _we = _abl_e.loc[_id, "ablated_idx"]
+        _ne = _abl_n.loc[_id, "ablated_idx"]
+        if not (_is_idx(_orig) and _is_idx(_we) and _is_idx(_ne)):
+            continue
+        if int(_orig) == int(_gold) and int(_we) == int(_orig) and int(_ne) != int(_orig):
+            _candidates.append(_id)
+
+    # Prefer a hand-checked vivid case if present; else the first candidate (deterministic).
+    _preferred = "2sUggWn8qBk97E38wKpjN5"
+    _example_id = _preferred if _preferred in _candidates else (_candidates[0] if _candidates else None)
+
+    if _example_id is None:
+        print("No Pipeline-A item matched the Delta-firing pattern in this run.")
+    else:
+        _row = _prep.loc[_example_id]
+        _choices = list(_row["choices"])
+        _gold_i = int(_row["correct_choice_idx"])
+        _orig_i = int(_gen.loc[_example_id, "answer_idx"])
+        _we_i = int(_abl_e.loc[_example_id, "ablated_idx"])
+        _ne_i = int(_abl_n.loc[_example_id, "ablated_idx"])
+        _caption = _gen.loc[_example_id, "caption"]
+        _explanation = str(_gen.loc[_example_id, "explanation"]).strip()
+
+        def _fmt(i: int) -> str:
+            return f"{_LETTERS[i]}. {_choices[i]}"
+
+        print("=== Worked example (Pipeline A; item shown as text only) ===")
+        print(f"  item id      : {_example_id}")
+        print(f"  question     : {_row['question']}")
+        print(f"  choices      : {', '.join(_fmt(i) for i in range(len(_choices)))}")
+        print(f"  gold answer  : {_fmt(_gold_i)}")
+        print()
+        print("  BLIP-2 caption (all that Pipeline A's LLM ever sees of the image):")
+        print(f'    "{_caption}"')
+        print()
+        _orig_ok = "correct" if _orig_i == _gold_i else "wrong"
+        print(f"  --> original answer       : {_fmt(_orig_i)}  ({_orig_ok})")
+        print(f'      self-explanation      : "{_explanation}"')
+        print()
+        print("  Vision ablated (caption replaced with the null string):")
+        _we_verb = "reproduces" if _we_i == _orig_i else "changes"
+        _ne_verb = "reproduces" if _ne_i == _orig_i else "changes"
+        print(f"    with the explanation    : {_fmt(_we_i)}  -> {_we_verb} the original answer")
+        print(f"    without the explanation : {_fmt(_ne_i)}  -> {_ne_verb} the original answer")
+        print()
+        if _we_i == _orig_i and _ne_i != _orig_i:
+            print("  Reading: the caption carries nothing that distinguishes the choices, yet the")
+            print("  model recovers its original answer once handed its OWN explanation, and loses")
+            print("  it without that explanation. The answer was recoverable from the self-rationale,")
+            print("  not the image -- this is one item's contribution to a positive Delta.")
+
+# %% [markdown]
+# ## 4. Filtered subset (leakage-free)
 #
 # Metrics on the filtered subset (items where no human rationale contains the gold
 # choice text verbatim) provide a cleaner signal by removing items where the gold
@@ -345,7 +454,7 @@ else:
     print("No filtered subset data found in metrics.json.")
 
 # %% [markdown]
-# ## 4. Discussion
+# ## 5. Discussion
 #
 # _The full written discussion is in `REPORT.md` section 6; this is a reading guide for the
 # tables and figure above._
