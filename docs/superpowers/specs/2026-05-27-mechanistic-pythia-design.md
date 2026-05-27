@@ -1,7 +1,8 @@
 # Project 5 — `05-mechanistic-pythia`: at which layer does a property become linearly decodable?
 
-**Status:** v2 — rewritten after four-way review round 1 (3× ACCEPT-WITH-CHANGES, 1× REWORK;
-all blockers/majors folded in) · 2026-05-27 · author Desmond Mariita. Awaiting round-2 review.
+**Status:** v2.1 — round-2 four-way review passed (2× ACCEPT-WITH-MINORS; 2× "short targeted pass",
+no full third round); all round-2 fixes folded in · 2026-05-27 · author Desmond Mariita.
+**Ready to implement.**
 
 Part of `interpretability-foundations`, built per `docs/PLAYBOOK.md`. **No HF Space.**
 Hardware: CPU is sufficient (Pythia-160M); the RTX 3090 only speeds activation extraction.
@@ -57,18 +58,23 @@ parquet (raw text); `outputs/` is gitignored.
 embedding *input*, RoPE is applied inside attention (not added to the residual), and the **last**
 entry is **post-final-layernorm**, not block-12's `resid_post`. To get clean, correctly-labelled
 points we **register forward hooks** on `model.gpt_neox.layers[i]` capturing each block's output
-(`resid_post`, i = 0..11 → 12 points) plus the **embedding output** (`resid_pre` of block 0 → 1
-point), giving the **13-point depth axis** `["embedding", "block_0", …, "block_11"]`. We
-additionally capture **`ln_f`** (the final layernorm output the unembedding actually reads) as a
+(`resid_post`, i = 0..11 → 12 points) plus the **embedding output** (`resid_pre` of block 0, hook
+`model.gpt_neox.embed_in` — identity-dropout in eval mode → 1 point), giving the **13-point depth
+axis** `["embedding", "block_0", …, "block_11"]`. We additionally capture **`ln_f`** (real
+attribute `model.gpt_neox.final_layer_norm`, the final layernorm the unembedding reads) as a
 **separate, clearly-labelled extra point** (not on the depth axis), so the pre-/post-LN distinction
-is explicit rather than hidden.
+is explicit. In transformers 5.9 a `GPTNeoXLayer` forward hook receives the hidden-states **tensor
+directly** (verified against source); defensively, if a future version returns a tuple, take
+element 0. Residuals are stored float16 but **upcast to float64 before StandardScaler/LR** (§5).
 
 **Token↔word alignment (full-sentence, offset-based).** For each sentence: reconstruct the surface
 string from `words` + `space_after` (cross-checked against `# text =`), tokenise the **whole
 sentence once** with the Pythia **Fast** tokeniser using `return_offsets_mapping=True`, and map each
-UD word's character span to the subword tokens whose offsets fall inside it; take the residual at
-the **last subword** of each word as that word's representation. (Encoding words separately is
-incorrect for byte-level BPE — leading-space bytes and cross-word merges shift positions.) Words
+UD word's character span `[ws, we)` to the subword tokens whose offset span **overlaps** it
+(`tok_end > ws AND tok_start < we`); take the residual at the **last** overlapping subword. The
+overlap test is required, **not** containment: byte-level BPE attaches the leading space to the
+token, so `Ġworld` starts one char before the word boundary and a containment test would silently
+drop every non-first word. (Encoding words separately is also incorrect for byte-level BPE.) Words
 that fail to align (rare; e.g. tokenizer normalisation) are dropped and counted in `metrics.json`.
 
 `scripts/10_extract.py` streams the corpus and writes **per-point** arrays to
@@ -97,7 +103,11 @@ model; with L2-regularised logistic regression this would confound "emergence" w
 So per (property, point) we fit a `sklearn.preprocessing.StandardScaler` on **train** residuals and
 apply it to dev/test before the probe.
 
-**Probe.** `LogisticRegression(class_weight="balanced", max_iter=2000, random_state=…)`; the
+All residuals are loaded float16 and **upcast to float64** before the scaler/probe (float16 variance
+is numerically unsafe at deep-layer norms).
+
+**Probe.** `LogisticRegression(class_weight="balanced", max_iter=2000, solver="lbfgs",
+random_state=<pinned in configs + logged>)`; the
 inverse-reg strength `C` is chosen **once per property on the dev split** (small grid, e.g.
 {0.01, 0.1, 1.0}) and then fixed across all points for that property (so cross-layer comparison
 holds `C` constant). Probes are fit on **train**, scored on **test**.
@@ -108,7 +118,8 @@ imbalance (chance = 0.5 regardless of prevalence). Raw accuracy and the **majori
 
 **Control task (Hewitt & Liang 2019), token-base-rate matched, multi-seed.** Build a random
 per-**word-type** label map (using the **exact surface form**, case-sensitive — the natural key for
-a byte-BPE model) over the **union of train+test types**, with the positive share matched in
+a byte-BPE model) over the **union of train+dev+test types** (so no token is ever unseen at scoring
+time), with the positive share matched in
 **token space**: greedily assign label 1 to types (in seeded-random order) accumulating their
 **train token frequency** until the cumulative positive *token* mass ≈ the property's train token
 base rate (the realised token-level control base rate is logged). The same standardise→
@@ -134,35 +145,48 @@ whose selectivity CI overlaps the peak's** as the "emergence" summary.
 Pure logic (no models, no sklearn, no I/O); the standardise+LR fit and activation extraction stay in
 scripts (slow-tested).
 
+All metric callables follow the **sklearn argument order `(y_true, y_pred)`** (the
+`bootstrap` helpers below call `metric_fn(y_true, y_pred)`), to avoid silent transposition under
+imbalance. P5 does **not** define its own `accuracy` — `awake.eval.accuracy` already exists (from
+P4, `None`-counts-as-wrong); P5 reuses it for raw accuracy (P5 predictions are always ints, so it
+behaves as plain accuracy) and exports only the genuinely new names below.
+
 ```python
-# probing.py
-def assign_control_labels(train_words: list[str], base_rate: float, seed: int) -> dict[str, int]:
-    """H&L control: deterministic random per-type binary label, with the positive share matched
-    in TOKEN space (weighted by each type's train frequency) to ~base_rate. Same args -> same map.
-    Keyed on exact surface form. Returns a label for every type present in train_words."""
+# probing.py  (pure)
+def assign_control_labels(all_types: set[str], train_counts: dict[str, int],
+                          base_rate: float, seed: int) -> dict[str, int]:
+    """H&L control: a deterministic random binary label for EVERY type in all_types
+    (= train union dev union test, so no token is ever unseen at scoring), with the positive
+    share matched in TOKEN space using train_counts (greedy seeded-random assignment until the
+    cumulative train-token mass of label-1 types ~ base_rate; realised rate is logged by caller).
+    Same args -> same map. Keyed on exact surface form."""
 def control_vector(words: list[str], type_to_label: dict[str, int]) -> list[int]:
     """Map each token's exact-surface-form type to its control label. Raises KeyError on a type
-    absent from the map (a caller error: the map must be built over the train+test union)."""
-def balanced_accuracy(pred: list[int], gold: list[int]) -> float:
+    absent from the map (a programming error: the map is built over the train+dev+test union)."""
+def balanced_accuracy(y_true: list[int], y_pred: list[int]) -> float:
     """Mean of per-class recall (chance = 0.5); 0.0 for empty; ValueError on length mismatch.
-    A class with no gold instances is omitted from the mean."""
-def accuracy(pred: list[int], gold: list[int]) -> float: ...          # raw; None/len rules as P4
+    A class with no y_true instances is omitted from the mean."""
 def majority_class(train_labels: list[int]) -> int: ...                # 1 if >half positive else 0
 def base_rate(labels: list[int]) -> float: ...
 def selectivity(probe_metric: float, control_metric: float) -> float: ...
 def type_overlap(train_words: list[str], test_words: list[str]) -> dict:
     """{'seen_type_token_rate': .., 'oov_type_token_rate': ..} for the test set vs train types."""
-def emergence_point(sel_by_point: dict[str, float], sel_ci_by_point: dict[str, tuple]) -> dict:
-    """{'peak': <point>, 'earliest_within_peak_ci': <point>} (lowest-index tie-break)."""
+def emergence_point(sel_by_point: dict[str, float],
+                    sel_ci_by_point: dict[str, tuple[float, float]]) -> dict:
+    """Over the 13 depth points ONLY (exclude 'ln_f'): {'peak': argmax-selectivity point,
+    'earliest_within_peak_ci': earliest point whose [lo,hi] OVERLAPS the peak's [lo,hi]
+    (lo_j <= hi_peak and lo_peak <= hi_j)}. Lowest-index tie-break."""
 
-# bootstrap.py (additions)
+# bootstrap.py  (additions; metric_fn is called as metric_fn(y_true, y_pred))
 def cluster_bootstrap_ci(y_true, y_pred, groups, metric_fn, n_resamples=2000, alpha=.05, seed=0): ...
     # resample GROUPS (sentences) with replacement; recompute metric_fn(y_true', y_pred') -> (lo,mean,hi)
 def paired_cluster_bootstrap(y_true, pred_a, pred_b, groups, metric_fn, ...): ...
-    # CI of metric_fn(a)-metric_fn(b) on the SAME resampled groups (paired)
+    # CI of metric_fn(y_true,pred_a) - metric_fn(y_true,pred_b) on the SAME resampled groups (paired)
 ```
-Reuse existing `bootstrap_ci` only for non-clustered cases. Export all new names from
-`src/awake/eval/__init__.py`.
+These take raw predictions (not pre-computed values like the existing `bootstrap_ci`) because
+cluster resampling must recompute the metric per resample — keep both; don't unify. Reuse
+`bootstrap_ci` only for non-clustered cases. Export the new names from `src/awake/eval/__init__.py`
+(**not** a second `accuracy`).
 
 ## 7. Eval + figures
 
@@ -170,8 +194,10 @@ Reuse existing `bootstrap_ci` only for non-clustered cases. Export all new names
 (train), score on test, store per-token `(gold, pred)` for probe and each control plus `sent_id`
 for clustering. `scripts/30_eval.py` — assemble `metrics.json`:
 `{"model":"EleutherAI/pythia-160m","model_revision":<sha>,"tokenizer_revision":<sha>,
-"versions":{"transformers":..,"torch":..},"points":["embedding","block_0",…,"block_11"],
-"extra_points":["ln_f"],"control_seeds":[…],
+"versions":{"transformers":..,"torch":..},
+"repro":{"probe_random_state":..,"train_cap":..,"train_cap_seed":..,"bootstrap_seed":..,
+"control_seeds":[…],"chosen_C":{"is_noun":..,"is_verb":..,"noun_number":..}},
+"points":["embedding","block_0",…,"block_11"],"extra_points":["ln_f"],
 "properties":{"is_noun":{"train_n":..,"test_n":..,"base_rate":..,"majority_baseline":..,
 "type_overlap":{…},"dropped_alignment":..,
 "points":[{"point":"embedding","balanced_acc":..,"balanced_acc_ci":[lo,hi],"raw_acc":..,
@@ -264,6 +290,9 @@ and licence-safe.
   unembedding reads) is reported separately. Layer-0 = token embeddings (no transformer computation).
 - **noun_number** is conditional on noun-hood being encoded and is sample-limited; underpowered runs
   are flagged, not hidden.
+- A **single cross-layer `C`** (chosen once per property on dev) is held constant across points for
+  fair comparison; it may slightly underfit at extreme depths, so reported selectivity is a
+  conservative estimate (a deliberate comparability tradeoff, not a bug).
 - One model, one size (Pythia-160m) — **no scaling claim**; one English web-text domain (UD-EWT);
   **linear** probes only. Activation patching and SAE inspection are explicitly **deferred** (README
   scope v1.1).
@@ -295,4 +324,19 @@ web-verified against the GPT-NeoX source). All blockers/majors folded in:
   noted; precise smoke assertion; `best_layer`/`emergence_point` tie-break; UD CC BY-SA attribution;
   notebook never prints UD text ← engineering + Codex + Gemini.
 
-Round 2 (this v2) re-runs the full four-way review to confirm the §3/§5 rework is correct.
+Round 2 four-way review (on v2): all four **verified the round-1 reworks are correct**; remaining
+items were mechanical contract fixes, folded into v2.1:
+- **Offset alignment must use OVERLAP** (`tok_end>ws AND tok_start<we`), not containment — else the
+  leading-space byte drops every non-first word ← engineering (verified empirically).
+- **`metric_fn(y_true, y_pred)` convention** pinned + `balanced_accuracy(y_true, y_pred)` sklearn
+  order — else silent transposition under imbalance ← engineering.
+- **No second `accuracy`** in `awake.eval` — reuse the existing P4 export (collision) ← Codex.
+- **`assign_control_labels(all_types, train_counts, …)`** over the train+dev+test union (control
+  map covers every scored token; `control_vector` KeyError is a programming error only) ←
+  Gemini + methodology.
+- **`ln_f` real attribute** `final_layer_norm`; embedding hook `embed_in`; hook returns a tensor in
+  5.9 (defensive tuple-0); **float16→float64** before scaler/LR ← engineering + Gemini.
+- **emergence_point**: explicit CI-overlap criterion + excludes `ln_f` ← methodology.
+- Log `probe_random_state`, `train_cap_seed`, `bootstrap_seed`, dev-chosen `C` ← engineering.
+- §12 note: single cross-layer `C` is a conservative comparability tradeoff ← methodology.
+No third full round (consensus: design verified sound; these were inline fixes).
