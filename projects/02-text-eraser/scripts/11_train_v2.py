@@ -114,6 +114,9 @@ def main():
         raise RuntimeError("Sealed run already exists; refusing to overwrite")
     out.mkdir(parents=True, exist_ok=True)
     seed_everything(cfg["seed"])
+    torch.manual_seed(cfg["seed"])
+    torch.cuda.manual_seed_all(cfg["seed"])
+    torch.set_num_threads(4)
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
     torch.backends.cudnn.benchmark = False
