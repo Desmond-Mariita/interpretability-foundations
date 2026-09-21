@@ -16,9 +16,17 @@ class HFModelAdapter:
         self.device = device
 
     @torch.no_grad()
-    def predict_proba(self, token_ids_batch: np.ndarray) -> np.ndarray:
+    def predict_proba(
+        self, token_ids_batch: np.ndarray, attention_mask: np.ndarray | None = None
+    ) -> np.ndarray:
         """Softmax probabilities for a ``(batch, seq)`` array of token ids."""
         ids = torch.as_tensor(token_ids_batch, dtype=torch.long, device=self.device)
-        attn = (ids != self.tokenizer.pad_token_id).long()
+        attn = (
+            (ids != self.tokenizer.pad_token_id).long()
+            if attention_mask is None
+            else torch.as_tensor(attention_mask, dtype=torch.long, device=self.device)
+        )
+        if attn.shape != ids.shape:
+            raise ValueError("attention mask shape mismatch")
         logits = self.model(input_ids=ids, attention_mask=attn).logits
         return torch.softmax(logits, dim=-1).cpu().numpy()

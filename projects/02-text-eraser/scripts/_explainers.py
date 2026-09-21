@@ -15,11 +15,20 @@ def build_explainer(name: str, model, tok, cfg: dict, device: str):
     if name == "grad_x_input":
         return GradientXInputExplainer(model, tok, device=device)
     if name == "integrated_gradients":
-        return IntegratedGradientsExplainer(model, tok, device=device, n_steps=cfg["ig"]["n_steps"])
+        return IntegratedGradientsExplainer(
+            model,
+            tok,
+            device=device,
+            n_steps=cfg["ig"]["n_steps"],
+            internal_batch_size=cfg["ig"].get("internal_batch_size", 4),
+        )
     if name == "lime":
-        return LimeExplainer(model, tok, device=device, num_samples=cfg["lime"]["num_samples"])
-    if name == "shap_partition":
-        from awake.eval.explainers.shap_partition import ShapPartitionExplainer
-
-        return ShapPartitionExplainer(model, tok, device=device, max_evals=cfg["shap"]["max_evals"])
+        return LimeExplainer(
+            model,
+            tok,
+            device=device,
+            num_samples=cfg["lime"]["num_samples"],
+            seed=cfg["bootstrap"]["seed"],
+            batch_size=cfg["lime"].get("batch_size", 8),
+        )
     raise ValueError(f"unknown explainer: {name}")

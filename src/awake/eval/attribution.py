@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -13,14 +13,15 @@ class TokenAttribution:
     """Per-token importance scores for one model-visible sequence.
 
     Attributes:
-        tokens: Subword (or whitespace, for LIME) token strings.
+        tokens: Subword or canonical whitespace-word strings.
         offsets: Character ``(start, end)`` spans into the original text.
         scores: Per-token importance toward the predicted class.
         visible_mask: True for real tokens, False for special/pad tokens.
         predicted_class: The class index the metrics are scored against.
         class_scores: Full predicted probability vector for the input.
-        word_level: True if scores are already whitespace-word level (LIME);
+        word_level: True if scores are already canonical whitespace-word level;
             False for subword-level.
+        diagnostics: Method-specific diagnostics (for example IG completeness).
     """
 
     tokens: list[str]
@@ -30,6 +31,7 @@ class TokenAttribution:
     predicted_class: int
     class_scores: np.ndarray
     word_level: bool = False
+    diagnostics: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate that all per-token sequences have the same length."""

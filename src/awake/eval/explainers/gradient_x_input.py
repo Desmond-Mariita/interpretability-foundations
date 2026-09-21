@@ -1,57 +1,44 @@
-"""Gradient x Input attribution (valid on DeBERTa's disentangled attention).
-
-Replaces attention rollout, which is ill-defined for DeBERTa's disentangled
-attention matrices.
-"""
+"""Gradient times input for the fixed predicted-class logit."""
 
 from __future__ import annotations
 
-import numpy as np
 import torch
 
-from awake.eval.attribution import TokenAttribution
+from awake.eval.explainers._canonical import fixed_example, tensors, word_result
 
 
 class GradientXInputExplainer:
-    """Saliency = sum over embedding dims of (grad x input embedding)."""
+    """Differentiate embedding-layer outputs in the original input-ID forward.
+
+    A hook avoids the different automatically inferred position IDs that some
+    models use for their ``inputs_embeds`` path (notably padded RoBERTa inputs).
+    """
 
     name = "grad_x_input"
 
     def __init__(self, model, tokenizer, device: str = "cpu") -> None:
-        """Store model/tokenizer and the compute device."""
+        """Store the frozen model and device."""
         self.model = model.to(device).eval()
-        self.tokenizer = tokenizer
         self.device = device
 
-    def attribute(self, example: dict) -> TokenAttribution:
-        """Compute gradient x input saliency toward the predicted class."""
-        enc = self.tokenizer(
-            example["text"],
-            truncation=True,
-            max_length=512,
-            return_offsets_mapping=True,
-            return_tensors="pt",
-        )
-        offsets = enc.pop("offset_mapping")[0].tolist()
-        word_ids = enc.word_ids()
-        ids = enc["input_ids"].to(self.device)
-        attn = enc["attention_mask"].to(self.device)
-        emb_layer = self.model.get_input_embeddings()
-        embeds = emb_layer(ids).clone().detach().requires_grad_(True)
-        logits = self.model(inputs_embeds=embeds, attention_mask=attn).logits
-        if example.get("predicted_class") is None:
-            pred = int(logits.argmax(dim=-1))
-        else:
-            pred = int(example["predicted_class"])
-        logits[0, pred].backward()
-        sal = (embeds.grad * embeds).sum(dim=-1)[0].detach().cpu().numpy()
-        visible = np.array([w is not None for w in word_ids], dtype=bool)
-        probs = torch.softmax(logits, dim=-1)[0].detach().cpu().numpy()
-        return TokenAttribution(
-            tokens=self.tokenizer.convert_ids_to_tokens(ids[0].tolist()),
-            offsets=[tuple(o) for o in offsets],
-            scores=sal,
-            visible_mask=visible,
-            predicted_class=pred,
-            class_scores=probs,
-        )
+    def attribute(self, example: dict):
+        """Return max-absolute subword contributions per canonical word."""
+        visible, pred, probs = fixed_example(example)
+        ids, attn = tensors(visible, self.device)
+        captured = []
+
+        def hook(_module, _inputs, output):
+            value = output.detach().requires_grad_(True)
+            captured.append(value)
+            return value
+
+        handle = self.model.get_input_embeddings().register_forward_hook(hook)
+        try:
+            logits = self.model(input_ids=ids, attention_mask=attn).logits
+            if int(logits.argmax(-1).item()) != pred:
+                raise ValueError("intact target changed")
+            grad = torch.autograd.grad(logits[0, pred], captured[0])[0]
+            sal = (grad * captured[0]).sum(-1)[0].detach().cpu().numpy()
+        finally:
+            handle.remove()
+        return word_result(visible, pred, probs, visible.aggregate(sal))

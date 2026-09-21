@@ -6,7 +6,9 @@ import json
 
 import numpy as np
 import pandas as pd
-from _paths import DATA_PATH, PREPARED, ensure_dirs, load_config
+from _paths import DATA_PATH, MODEL_DIR, PREPARED, ensure_dirs, load_config
+
+from awake.eval.visible_words import canonical_visible
 
 LABELS = {"NEG": 0, "POS": 1}
 
@@ -38,29 +40,9 @@ def build_record(example: dict, doc_text: str) -> dict:
 
 
 def freeze_visible(text: str, tokenizer, max_len: int) -> dict:
-    """Tokenize once, truncate to max_len, capture offsets + word_ids."""
-    enc = tokenizer(
-        text,
-        truncation=True,
-        max_length=max_len,
-        return_offsets_mapping=True,
-        return_tensors=None,
-    )
-    word_ids = enc.word_ids()
-    return {
-        "input_ids": enc["input_ids"],
-        "offsets": enc["offset_mapping"],
-        "word_ids": word_ids,
-    }
-
-
-def truncation_coverage(word_ids: list[int | None], gold_mask: list[int]) -> float:
-    """Fraction of gold-rationale words that survive truncation."""
-    gold_words = {i for i, g in enumerate(gold_mask) if g}
-    if not gold_words:
-        return 1.0
-    visible_words = {w for w in word_ids if w is not None}
-    return len(gold_words & visible_words) / len(gold_words)
+    """Freeze original token IDs and derive explicit complete visible-word spans."""
+    visible = canonical_visible(text, tokenizer, max_len)
+    return {"input_ids": visible.input_ids, "visible_json": visible.to_json()}
 
 
 def main() -> None:
@@ -69,8 +51,8 @@ def main() -> None:
 
     ensure_dirs()
     cfg_d = load_config("data")
-    cfg_m = load_config("model")
-    tok = AutoTokenizer.from_pretrained(cfg_m["model_name"])
+    # Reuse the exact saved tokenizer; never silently fetch a different revision.
+    tok = AutoTokenizer.from_pretrained(MODEL_DIR, local_files_only=True)
     stats = {"dropped_comparison": 0}
 
     for split in ("train", "val", "test"):
@@ -86,7 +68,14 @@ def main() -> None:
                 rec = build_record(ex, doc_text)
                 vis = freeze_visible(rec["text"], tok, cfg_d["max_seq_len"])
                 rec.update(vis)
-                rec["truncation_coverage"] = truncation_coverage(vis["word_ids"], rec["gold_mask"])
+                from awake.eval.visible_words import VisibleWords
+
+                visible = VisibleWords.from_json(rec["visible_json"])
+                clipped = visible.clip_gold(rec["gold_mask"])
+                rec["gold_visible"] = clipped.tolist()
+                rec["truncation_coverage"] = (
+                    float(clipped.sum() / sum(rec["gold_mask"])) if sum(rec["gold_mask"]) else 1.0
+                )
                 rows.append(rec)
         pd.DataFrame(rows).to_parquet(PREPARED / f"{split}.parquet")
         print(f"{split}: {len(rows)} examples")
