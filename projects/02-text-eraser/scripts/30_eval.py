@@ -186,7 +186,57 @@ def main() -> None:
         "max": float(np.max(residuals)),
         "p95": float(np.quantile(residuals, 0.95)),
     }
+    lime = json.loads((args.run_dir / "lime_diagnostics.json").read_text())
+
+    def summary(values):
+        values = np.asarray(values, dtype=float)
+        return {
+            "min": float(values.min()),
+            "median": float(np.median(values)),
+            "mean": float(values.mean()),
+            "p95": float(np.quantile(values, 0.95)),
+            "max": float(values.max()),
+        }
+
+    diagnostics["lime_weighted_r2"] = summary([d["weighted_r2"] for d in lime])
+    diagnostics["lime_absolute_local_error"] = summary(
+        [abs(d["local_prediction"] - d["intact_logit"]) for d in lime]
+    )
+    diagnostics["visible_words"] = summary(
+        [len(VisibleWords.from_json(v).words) for v in sub.visible_json]
+    )
+    diagnostics["truncated_examples"] = sum(
+        len(VisibleWords.from_json(row.visible_json).words) < len(row.words)
+        for row in sub.itertuples()
+    )
+    diagnostics["failed_examples"] = 0
+    diagnostics["method_coverage"] = {name: len(sub) for name in EXPLAINERS}
+    paired_intervals = {}
+    for a, b in pairs:
+        paired_intervals[f"{a}_vs_{b}"] = {}
+        for metric in per_method[a]:
+            av, bv = per_method[a][metric], per_method[b][metric]
+            valid = np.isfinite(av) & np.isfinite(bv)
+            lo, mean, hi = bootstrap_ci(
+                (av - bv)[valid], boot["n_resamples"], boot["alpha"], boot["seed"]
+            )
+            paired_intervals[f"{a}_vs_{b}"][metric] = {
+                "mean_diff": mean,
+                "ci_low": lo,
+                "ci_high": hi,
+                "n": int(valid.sum()),
+            }
+    pd.DataFrame(
+        [
+            {"method": name, "example_id": i, **{k: float(v[i]) for k, v in values.items()}}
+            for name, values in per_method.items()
+            for i in range(len(sub))
+        ]
+    ).to_parquet(args.run_dir / "per_example_metrics.parquet")
     out = {
+        "schema": "p2-explainer-metrics-fresh-v2",
+        "paired_difference_ci": paired_intervals,
+        "comparison_family": "six pairwise comprehensiveness comparisons, Bonferroni FWER 0.05; other paired CIs descriptive and unadjusted",
         "status": "corrected_full_run" if manifest["full_test"] else "corrected_pilot",
         "contract": CONTRACT,
         "run_id": run_identity(manifest),

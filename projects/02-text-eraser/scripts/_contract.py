@@ -20,7 +20,34 @@ def file_hash(path: Path) -> str:
 
 
 def checkpoint_identity(model_dir: Path) -> dict:
-    """Verify the historical training hash and fingerprint all current files."""
+    """Verify sealed v2 provenance, or the legacy hash for offline compatibility."""
+    meta_path = model_dir / "train_meta.json"
+    if meta_path.exists():
+        meta = json.loads(meta_path.read_text())
+        if meta.get("schema") == "p2-fresh-training-v2":
+            if meta.get("smoke"):
+                raise ValueError("smoke checkpoint cannot produce scientific results")
+            inventory = meta["artifacts"]
+            for name, digest in inventory.items():
+                if file_hash(model_dir / name) != digest:
+                    raise ValueError("v2 checkpoint artifact changed: " + name)
+            expected = (model_dir / "model_sha256.txt").read_text().strip()
+            if run_identity(inventory) != expected or meta["artifact_fingerprint"] != expected:
+                raise ValueError("v2 checkpoint fingerprint mismatch")
+            manifest = json.loads((model_dir / "run_manifest.json").read_text())
+            for name, digest in manifest["files"].items():
+                if file_hash(model_dir / name) != digest:
+                    raise ValueError("v2 provenance changed: " + name)
+            return {
+                "schema": "p2-fresh-training-v2",
+                "training_sha256": expected,
+                "weights_sha256": meta["weights_sha256"],
+                "tokenizer_fingerprint": meta["tokenizer_fingerprint"],
+                "files": {p.name: file_hash(p) for p in sorted(model_dir.iterdir()) if p.is_file()},
+                "model_revision": "local-finetuned-sha256:" + expected,
+                "upstream_hub_revision": meta["model_revision"],
+                "tokenizer_revision": meta["tokenizer_revision"],
+            }
     files = sorted(p for p in model_dir.rglob("*") if p.is_file())
     if not (model_dir / "model_sha256.txt").exists():
         raise ValueError("original trained checkpoint/hash missing; do not retrain silently")

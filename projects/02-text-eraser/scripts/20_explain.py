@@ -86,6 +86,8 @@ def main() -> None:
     cfg = load_config("explainers")
     data_cfg = load_config("data")
     identity = checkpoint_identity(MODEL_DIR)
+    if identity.get("schema") != "p2-fresh-training-v2":
+        raise ValueError("fresh v2 checkpoint required for authoritative rerun")
     code = code_identity(PROJECT_ROOT.parents[1])
     # Verify the versioned source archive; extracted-data identity is also captured below.
     archive = DATA_PATH / "movies.tar.gz"
@@ -134,7 +136,8 @@ def main() -> None:
         "torch": torch.__version__,
         "transformers": transformers.__version__,
         "device": args.device,
-        "retrained": False,
+        "retrained": True,
+        "experiment_version": "fresh-v2",
         "aggregation": "max_absolute_subword; absolute_LIME_coefficient; uniform_word_random",
         "perturbation": "mask_all_subwords_of_complete_words; fixed_partial_context",
         "input_fingerprints": [VisibleWords.from_json(s).fingerprint for s in sub.visible_json],
