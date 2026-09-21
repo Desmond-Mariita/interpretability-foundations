@@ -84,6 +84,20 @@ model/tokenizer hashes, dataset version/checksum, prepared checksum, scalar/cont
 explainer configuration, seed and sample count. The historical upstream Hub revision is
 unknown; it is not invented. The checkpoint must pass its existing training hash check.
 
+## Full-split IG convergence finding (2026-09-22)
+
+The initial v2 IG configuration used 50 integration steps. Full-split completeness
+diagnostics showed under-convergence on 61% of examples. A prespecified convergence sweep
+on the worst residual cases showed stable convergence by 800 steps. The IG configuration
+was therefore revised to n_steps=800, triggering a new run identity and full recomputation
+of all explainer outputs under the repository's provenance contract.
+
+The superseded n_steps=50 full-run artifacts and diagnostics are archived at
+`outputs/attributions/v2-nsteps50-superseded/`; the run's identity, hash and cache checks
+all passed, so only the IG numerical-convergence gate failed. LIME surrogate fits were
+finite with weighted R² in [0.228, 0.915] across the split. The real-data pilot audit
+(`pilot_audit.json`) passed before the full run.
+
 ## Old versus corrected headline metrics
 
 These historical means are **invalid comparisons**, retained solely to identify what was
