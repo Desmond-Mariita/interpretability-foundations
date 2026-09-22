@@ -199,3 +199,22 @@ def test_leakage_subset_deterministic_dataset_side_and_incomplete():
     assert first[1]["leakage_flag"] is False
     # Paraphrase leakage is NOT caught: the filter removes only verbatim gold-choice text.
     assert first[2]["leakage_flag"] is False
+
+
+@pytest.mark.unit
+def test_no_causal_attribution_of_divergence_or_leakage():
+    """Divergence attribution and filtered-subset leakage claims stay bounded.
+
+    The design does not isolate the modality-stack factor (B7 bounds only the
+    parameter-count confound), and the verbatim-gold-text filter removes only one
+    leakage channel -- so neither may be stated as a causal conclusion.
+    """
+    banned = (
+        "driven by the modality stack",
+        "attributable to the modality stack",
+        "not an artifact of dataset-side answer leakage",
+    )
+    notebook_py = (PROJECT / "notebooks" / "01-vqa-consistency.py").read_text()
+    for doc in (REPORT, README, notebook_py):
+        for phrase in banned:
+            assert phrase not in doc

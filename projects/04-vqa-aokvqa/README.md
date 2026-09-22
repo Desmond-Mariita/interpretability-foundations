@@ -85,8 +85,10 @@ headline number from the run.
   this setup.
 - Explanation leakage correlates with the recoverability delta across the three
   pipelines (descriptive, not causal).
-- Most A-vs-VLM divergence is attributable to the modality stack rather than the
-  parameter gap (B-vs-B7 divergence is ~14% vs. ~37% for A-vs-VLM).
+- A diverges from both direct-VLM variants much more often than B and B7 diverge from
+  each other (~37% vs ~14%) -- consistent with the architecture/modality-stack difference
+  contributing substantially, though this design does not isolate it from model-family
+  differences.
 
 ## 9. What it does NOT support
 

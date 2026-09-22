@@ -210,9 +210,10 @@ the None-as-inconsistent headline policy is not an artifact of unparseable outpu
 | B vs B7 | 0.139 [0.119, 0.160] | 905 / 0 | 81 / 18 |
 
 The caption pipeline disagrees with each VLM on ~37% of items, while the two VLMs disagree
-on only ~14%: most of the A-vs-VLM divergence is attributable to the modality stack
-(caption vs. direct vision) rather than the parameter gap, since the size-matched B-vs-B7
-pair diverges far less. The contingency counts were recorded from `metrics.json` at run
+on only ~14%. This pattern is consistent with the architecture/modality-stack difference
+contributing substantially to the A-vs-VLM divergence, but the design does not isolate
+that factor from model-family and other differences (B7 bounds only the parameter-count
+confound). The contingency counts were recorded from `metrics.json` at run
 time (the notebook does not print them); they are internally consistent with the divergence
 rates and accuracies above, but they cannot be re-derived from surviving artifacts. When A
 and B are both wrong they pick the **same** wrong answer on 67 of 124 such items and
@@ -228,11 +229,12 @@ minority of shared failures pick distinct wrong answers.
 | B7 | 0.882 | 0.465 [0.409, 0.521] |
 
 (Filtered accuracies are recorded from the run's `metrics.json` via the original report;
-the notebook prints only the filtered Deltas.) Removing the 805 items whose human
-rationales restate the gold answer text barely moves the picture: the Delta ordering
-(B7 > A > B) and magnitudes are essentially unchanged, so the result is not an artifact of
-dataset-side answer leakage. This does **not** rule out leakage from the models' own
-generated explanations, and the subset-selection caveats of §2 apply.
+the notebook prints only the filtered Deltas.) The same Delta ordering (B7 > A > B) and
+similar magnitudes persist after filtering the 805 items whose human rationales contain
+the gold answer text verbatim. This reduces concern that the observed pattern is
+explained solely by that specific form of dataset-side leakage, but it does not rule out
+other leakage channels (paraphrase, distractors, model-generated answers) or selection
+effects. The subset-selection caveats of §2 apply.
 
 ### 5.5 B7 completion status
 
@@ -263,16 +265,17 @@ Part of the recoverability gain is therefore plausibly the trivial restating-the
 channel rather than recovered reasoning. The correlation is descriptive; it does not
 quantify how much of each Delta is leakage-driven.
 
-**Divergence is driven by the modality stack, not capacity.** A diverges from both VLMs on
-~37% of items, but the two VLMs diverge on only ~14%. Since B and B7 differ only in size,
-the much larger A-vs-VLM divergence is attributable to the caption-then-LLM architecture
-(a lossy text bottleneck) rather than the parameter gap.
+**Divergence pattern.** A diverges from both direct-VLM variants much more often (~37%)
+than B and B7 diverge from each other (~14%). This pattern is consistent with the
+architecture/modality-stack difference contributing substantially, but the design does not
+isolate that factor from model-family and other differences.
 
 **Net.** On A-OKVQA, the caption-then-LLM pipeline is less accurate and more divergent
 than the direct VLMs under this setup, and every pipeline -- most strongly B7 -- shows a
 positive explanation-conditioned recoverability delta under null visual input. The
-filtered-subset replication rules out dataset-side answer leakage as the sole cause; the
-generated-explanation leak channel remains (§4.3).
+filtered-subset replication reduces concern that dataset-side answer leakage alone
+explains the pattern; the generated-explanation leak channel and other leakage forms
+remain (§4.3, §5.4).
 
 ## 7. Limitations
 

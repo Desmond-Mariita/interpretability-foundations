@@ -97,6 +97,9 @@ download time. Future reruns should pin the dataset revision and commit the metr
 - "Chance-like" baseline description → removed; baseline stated as empirical; the 0.25
   uniform-guess figure appears only to be disclaimed as the null.
 - "Expected capacity gains within the VLM family" → reworded descriptively.
+- (Final Gatekeeper pass) Divergence attribution further narrowed to a descriptive
+  pattern — see §13.
+- (Final Gatekeeper pass) Filtered-subset leakage claim softened — see §13.
 
 ## 8. Files changed (P4 only)
 
@@ -151,7 +154,28 @@ A GPU rerun is not needed for this repair.
 ## 12. Branch / commit / PR
 
 - Branch: `fix/p4-aokvqa-claims-provenance` (from `origin/main` @ 830a7e9)
-- Commit: `63ded6d` `fix(p4): repair claims, estimand language, and provenance`
-  (+ `docs(p4): record PR reference in REPAIR_REPORT` follow-up)
+- Commits: `63ded6d` `fix(p4): repair claims, estimand language, and provenance`;
+  `docs(p4): record PR reference in REPAIR_REPORT`;
+  `docs(p4): narrow modality and leakage interpretations` (final Gatekeeper pass, §13)
 - Draft PR: https://github.com/Desmond-Mariita/interpretability-foundations/pull/3
 - PR is left **unmerged** for Gemini/Codex review.
+
+## 13. Final Gatekeeper pass (post-PR-#3 review) — two further narrowings
+
+1. **Architecture/modality-stack interpretation.** REPORT §5.3/§6 and README §8 no longer
+   state that divergence is "driven by" or "attributable to" the modality stack. The
+   bounded descriptive statement is: A diverges from both direct-VLM variants much more
+   often than B and B7 diverge from each other; this is consistent with the
+   architecture/modality-stack difference contributing substantially, but the design does
+   not isolate that factor from model-family and other differences (B7 bounds only the
+   parameter-count confound).
+2. **Filtered-subset leakage interpretation.** REPORT §5.4 no longer claims the result is
+   "not an artifact of dataset-side answer leakage". The softened statement is: the same
+   Delta ordering and similar magnitudes persist after filtering the 805 items whose
+   human rationales contain the gold answer text verbatim; this reduces concern that the
+   pattern is explained solely by that specific form of dataset-side leakage, but does
+   not rule out other leakage channels or selection effects.
+
+A guard test (`test_no_causal_attribution_of_divergence_or_leakage`) pins the banned
+phrases out of REPORT, README, and the notebook source. No metrics, counts, or CIs were
+changed; no rerun.
