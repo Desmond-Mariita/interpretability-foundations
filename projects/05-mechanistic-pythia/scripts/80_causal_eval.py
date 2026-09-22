@@ -260,6 +260,22 @@ def paired_condition_contrast(
     return out
 
 
+def claim_support(primary: dict, paired: dict, points: list[str]) -> dict:
+    """Claim-guard logic for the generated conclusion sentence.
+
+    The full claim says the effect occurred "across all tested causal points", so it is
+    generated only when EVERY causal point's primary CI and both paired H3 contrast CIs
+    are strictly above 0. Returns ``{"h2_all": bool, "h3_all": bool, "full_claim": bool}``.
+    """
+    h2_all = all(primary[p]["ci"][0] > 0 for p in points)
+    h3_all = all(
+        paired["number_minus_same"][p]["ci"][0] > 0
+        and paired["number_minus_random_mean"][p]["ci"][0] > 0
+        for p in points
+    )
+    return {"h2_all": h2_all, "h3_all": h3_all, "full_claim": h2_all and h3_all}
+
+
 # ---------------------------------------------------------------------------
 # Pure: snapshot schema + report consistency
 # ---------------------------------------------------------------------------
@@ -562,17 +578,12 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
             "n_items": len(sub),
         }
 
-    # conclusion (claim-boundary language, ADR 006 Decision 7). H3 is claimed only where
-    # the paired contrast CIs are strictly above 0 at every causal point (the pre-registered
-    # decision rule), not from the primary CI alone.
-    sig_layers = [p for p in points if primary[p]["ci"][0] > 0]
+    # conclusion (claim-boundary language, ADR 006 Decision 7). The full claim ("across
+    # all tested causal points") is generated only when EVERY causal point's primary CI and
+    # both paired H3 contrast CIs are strictly above 0 -- the guard must match the wording.
     paired = controls["paired_contrasts"]
-    h3_supported = all(
-        paired["number_minus_same"][p]["ci"][0] > 0
-        and paired["number_minus_random_mean"][p]["ci"][0] > 0
-        for p in points
-    )
-    if sig_layers and h3_supported:
+    support = claim_support(primary, paired, points)
+    if support["h2_all"] and support["h3_all"]:
         snap["conclusion"] = (
             "Replacing the subject representation's projection on the decoded "
             "noun-number direction with the projection from an opposite-number donor "

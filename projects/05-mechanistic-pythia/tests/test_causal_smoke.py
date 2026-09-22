@@ -476,3 +476,39 @@ def test_report_guard_pins_headline_numbers_against_snapshot():
         assert f"{d['mean_diff']:.3f}" in report, f"{series} embedding contrast missing"
     # the removed ratio claim must not reappear in the wrong form
     assert "roughly 60%" not in report.lower()
+
+
+# ---------------------------------------------------------------------------
+# Final-cleanup guard: the "across all causal points" claim requires ALL points
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.smoke
+def test_claim_support_requires_all_points():
+    """The full-claim conclusion must require every causal point, not just some."""
+    mod = _mod("80_causal_eval")
+    points = ["embedding", "block_11"]
+    primary = {
+        "embedding": {"ci": [0.1, 0.2]},
+        "block_11": {"ci": [-0.01, 0.01]},  # one point fails
+    }
+    paired = {
+        "number_minus_same": {
+            "embedding": {"ci": [0.1, 0.2]},
+            "block_11": {"ci": [0.01, 0.02]},
+        },
+        "number_minus_random_mean": {
+            "embedding": {"ci": [0.1, 0.2]},
+            "block_11": {"ci": [0.01, 0.02]},
+        },
+    }
+    support = mod.claim_support(primary, paired, points)
+    assert not support["h2_all"]
+    assert support["h3_all"]
+    assert not support["full_claim"]
+    # all points positive -> full claim allowed
+    primary["block_11"]["ci"] = [0.01, 0.02]
+    assert mod.claim_support(primary, paired, points)["full_claim"]
+    # one H3 contrast failing blocks the claim too
+    paired["number_minus_same"]["block_11"]["ci"] = [-0.01, 0.01]
+    assert not mod.claim_support(primary, paired, points)["full_claim"]
