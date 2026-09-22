@@ -50,7 +50,7 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
         rows = []
         for r in sub.itertuples():
             enc = tok(r.prompt_text, return_tensors="pt", add_special_tokens=False)
-            ids = enc["input_ids"].tolist()
+            ids = enc["input_ids"][0].tolist()
             assert ids == list(r.input_ids), f"tokenizer drift for {r.stim_id}"
             captured: dict[str, torch.Tensor] = {}
             handles = []
