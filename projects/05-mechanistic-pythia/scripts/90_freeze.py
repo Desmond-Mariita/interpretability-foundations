@@ -68,7 +68,7 @@ def main() -> None:  # pragma: no cover - provenance tooling (needs git + artifa
     assert live_hash == manifest["stimuli"]["table_sha256"], "stimulus table drifted from manifest"
 
     freeze = {
-        "version": "v1.1-design-freeze-4",
+        "version": "v1.1-design-freeze-5",
         "git_sha": git_sha(),
         "created_utc_note": "recorded at freeze time",
         "model_id": cfg["model_id"],
