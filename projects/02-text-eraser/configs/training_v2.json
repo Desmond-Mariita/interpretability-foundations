@@ -1,0 +1,64 @@
+{
+  "adam_betas": [
+    0.9,
+    0.999
+  ],
+  "adam_epsilon": 1e-08,
+  "attention_implementation": "eager",
+  "backup_root": "~/backups/interpretability-foundations/p2-v2",
+  "batch_size": 16,
+  "checkpoint_selection": "highest epoch-end dev accuracy, ties lower dev cross-entropy loss, then earlier epoch",
+  "checkpoint_selection_metric": "dev accuracy",
+  "class_weighting": "none",
+  "data_loader_workers": 0,
+  "dataset": {
+    "archive_sha256": "66e18d4e6c9df9e9f5544572b0bfe92a39673f74ecbfc3859b46cedb2f5b2dee",
+    "extracted_sha256": "be05ffa60045e6d50e551ad4d8d279f524d63fd1d12f06c3b280b5c40e45620b",
+    "inclusion": "existing same-document evidence rule; exclude cross-document examples",
+    "source": "https://www.eraserbenchmark.com/zipped/movies.tar.gz",
+    "split_sha256": {
+      "test": "40c0e4c095d6d1dc3bbf952515f7e68fe54ebf4d25400c9b656ee86c4f0e3a6f",
+      "train": "48333b014badb23e158824f73011fb28340d147bbac217caad3392a17f85c282",
+      "val": "50f0d914b3bde03b3f793304e104858afe912762488683035aba90e3df8b797d"
+    },
+    "splits": {
+      "dev": "val.jsonl",
+      "test": "test.jsonl",
+      "train": "train.jsonl"
+    },
+    "version": "ERASER Movies fixed archive"
+  },
+  "dev_test_precision": "float32",
+  "device": "cuda:0",
+  "early_stopping": "none",
+  "environment": {
+    "command": "toolbox run -c dev uv sync --locked --extra dev",
+    "freeze_sha256": "d003805916e966a2211c018d1ea67b2be23d4216b62c43a95c58201923ad5c5d",
+    "uv_lock_sha256": "3cbd43c2ca0336b7d087f19f402cd3ec24d39f96b2796f6ed6efd59776404074"
+  },
+  "epochs": 3,
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "gradient_accumulation": 1,
+  "label_mapping": {
+    "NEG": 0,
+    "POS": 1
+  },
+  "learning_rate": 2e-05,
+  "max_grad_norm": 1.0,
+  "max_sequence_length": 512,
+  "model_identifier": "FacebookAI/roberta-base",
+  "model_revision": "e2da8e2f811d1448a5b465c236feacd80ffbac7b",
+  "optimizer": "AdamW all parameters",
+  "precision": "float16_autocast",
+  "scheduler": "linear decay",
+  "schema": "p2-fresh-training-v2",
+  "seed": 42,
+  "selection_frequency": "each epoch",
+  "test_policy": "evaluate once after dev-only selection; never tune against test",
+  "tf32": false,
+  "tokenizer_identifier": "FacebookAI/roberta-base",
+  "tokenizer_revision": "e2da8e2f811d1448a5b465c236feacd80ffbac7b",
+  "warmup_ratio": 0.1,
+  "warmup_rounding": "floor of optimizer steps * ratio",
+  "weight_decay": 0.01
+}

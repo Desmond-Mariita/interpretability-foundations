@@ -1,229 +1,273 @@
-"""Score cached attributions: faithfulness, plausibility, CIs, figures."""
+"""Evaluate only complete, identity-verified v2 canonical word caches."""
 
 from __future__ import annotations
 
+import argparse
 import json
-import math
 from itertools import combinations, pairwise
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
+from _contract import checkpoint_identity, code_identity, file_hash, run_identity, validate_cache
 from _model_adapter import HFModelAdapter
-from _paths import ASSETS, CACHE_DIR, MODEL_DIR, ensure_dirs, load_config
+from _paths import ASSETS, CACHE_DIR, MODEL_DIR, PROJECT_ROOT, load_config
 from sklearn.metrics import f1_score
 
 from awake.eval.bootstrap import bootstrap_ci, paired_diff_test
-from awake.eval.faithfulness import aopc_comprehensiveness, comprehensiveness, sufficiency
-from awake.eval.plausibility import (
-    aggregate_subwords_to_words,
-    clip_gold_mask_to_window,
-    token_auprc,
-    token_prf1_at_k,
-)
+from awake.eval.plausibility import token_auprc
+from awake.eval.visible_words import CONTRACT, VisibleWords, top_words
 
-REAL_EXPLAINERS = ["grad_x_input", "integrated_gradients", "lime"]
-
-
-def _clean_word_ids(raw) -> list[int | None]:
-    """Normalise a parquet-loaded word_ids row to ``list[int | None]``.
-
-    Parquet stores the ``[None, 0, 1, ...]`` list as a float array, turning the
-    special-token ``None`` entries into NaN; restore them to real ``None``/ints.
-    """
-    out: list[int | None] = []
-    for w in raw:
-        if w is None or (isinstance(w, float) and math.isnan(w)):
-            out.append(None)
-        else:
-            out.append(int(w))
-    return out
+EXPLAINERS = ["random", "grad_x_input", "integrated_gradients", "lime"]
 
 
 def expected_calibration_error(conf, _preds, labels, n_bins=10) -> float:
-    """Standard ECE over equal-width confidence bins.
-
-    ``conf`` is the predicted probability for the positive class (``probs[:,
-    1]`` for binary tasks); accuracy is the empirical positive rate in each bin
-    so that a perfectly calibrated model (conf == P(y=1)) achieves ECE == 0.
-    ``_preds`` is accepted for API consistency but is not used.
-    """
+    """Positive-class reliability error on intact inputs, not perturbed inputs."""
     conf, labels = np.asarray(conf), np.asarray(labels)
-    edges = np.linspace(0, 1, n_bins + 1)
-    ece = 0.0
-    for lo, hi in pairwise(edges):
-        m = (conf > lo) & (conf <= hi)
-        if m.any():
-            acc = labels[m].mean()
-            ece += m.mean() * abs(acc - conf[m].mean())
-    return float(ece)
+    error = 0.0
+    for i, (lo, hi) in enumerate(pairwise(np.linspace(0, 1, n_bins + 1))):
+        mask = ((conf >= lo) if i == 0 else (conf > lo)) & (conf <= hi)
+        if mask.any():
+            error += mask.mean() * abs(labels[mask].mean() - conf[mask].mean())
+    return float(error)
 
 
-def _scores_for_row(attr_df, example_id, n_tokens):
-    """Per-token scores for one example, resized to ``n_tokens``."""
-    s = attr_df[attr_df.example_id == example_id].sort_values("token_idx")["score"].to_numpy()
-    if s.size != n_tokens:
-        s = np.resize(s, n_tokens)
-    return s
+def _scores_for_row(attr_df, example_id, visible):
+    """Require exact canonical word IDs, strings, input identity and finite scores."""
+    rows = attr_df[attr_df.example_id == example_id].sort_values("word_idx")
+    if (
+        rows.word_idx.tolist() != list(range(len(visible.words)))
+        or rows.word.tolist() != visible.words
+        or rows.input_fingerprint.tolist() != [visible.fingerprint] * len(visible.words)
+    ):
+        raise ValueError("canonical attribution identity/length mismatch")
+    scores = rows.score.to_numpy(dtype=float)
+    if not np.isfinite(scores).all():
+        raise ValueError("nonfinite attribution scores")
+    return scores
 
 
-def _faithfulness_for(adapter, sub, attr_df, cfg) -> dict[str, np.ndarray]:
-    """Per-example comprehensiveness, sufficiency, AOPC for one explainer."""
-    mask_id = adapter.tokenizer.mask_token_id
-    comp, suff, aopc = [], [], []
-    for i, row in sub.reset_index(drop=True).iterrows():
-        ids = np.asarray(row["input_ids"])
-        scores = _scores_for_row(attr_df, i, ids.size)
-        visible = np.array([w is not None for w in _clean_word_ids(row["word_ids"])], dtype=bool)
-        probs = adapter.predict_proba(ids[None, :])[0]
-        pred = int(probs.argmax())
-        comp.append(
-            comprehensiveness(
-                adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"]
-            )
-        )
-        suff.append(
-            sufficiency(adapter.predict_proba, ids, scores, visible, pred, mask_id, cfg["k_d"])
-        )
-        aopc.append(
-            aopc_comprehensiveness(
-                adapter.predict_proba, ids, scores, visible, pred, mask_id, tuple(cfg["aopc_bins"])
-            )
-        )
+def score_example(predict_proba, visible, scores, gold, pred, mask_id, cfg, expected_probs=None):
+    """Word budgets drive identical frozen-token interventions across methods."""
+    gold = np.asarray(gold, dtype=int)
+    if gold.shape != (len(visible.words),) or not np.isin(gold, [0, 1]).all():
+        raise ValueError("visible gold length/value mismatch")
+    rationale = top_words(scores, cfg["k_d"])
+    keep = np.vstack(
+        [
+            np.ones(len(scores), dtype=bool),
+            ~rationale,
+            rationale,
+            *[~top_words(scores, f) for f in cfg["aopc_bins"]],
+        ]
+    )
+    probs = predict_proba(
+        visible.perturb(keep, mask_id), np.tile(visible.attention_mask, (len(keep), 1))
+    )
+    if int(probs[0].argmax()) != pred:
+        raise ValueError("original prediction changed; cache/checkpoint mismatch")
+    if expected_probs is not None and not np.allclose(
+        probs[0], expected_probs, atol=1e-5, rtol=1e-5
+    ):
+        raise ValueError("intact probabilities changed since attribution")
+    values = probs[:, pred]
+    tp = int((rationale & gold.astype(bool)).sum())
+    precision = tp / rationale.sum() if rationale.any() else 0.0
+    recall = tp / gold.sum() if gold.any() else 0.0
     return {
-        "comprehensiveness": np.array(comp),
-        "sufficiency": np.array(suff),
-        "aopc": np.array(aopc),
+        "comprehensiveness": float(values[0] - values[1]),
+        "sufficiency": float(values[0] - values[2]),
+        "aopc": float((values[0] - values[3:]).mean()),
+        "token_f1": float(2 * precision * recall / (precision + recall))
+        if precision + recall
+        else 0.0,
+        "auprc": token_auprc(scores, gold),
     }
 
 
-def _plausibility_for(sub, attr_df, cfg, word_level: bool) -> dict[str, np.ndarray]:
-    """Per-example token-F1 and AUPRC vs the human rationale for one explainer."""
-    f1s, auprcs = [], []
+def evaluate(adapter, sub, attr_df, cfg):
+    """Return per-example scores; never resample/mutate token identities."""
+    values = []
     for i, row in sub.reset_index(drop=True).iterrows():
-        n_words = int(row["n_words"])
-        gold = clip_gold_mask_to_window(np.asarray(row["gold_mask"]), n_words)
-        if word_level:
-            raw = _scores_for_row(attr_df, i, n_words)
-            word_scores = np.resize(raw, n_words)
-        else:
-            wids = _clean_word_ids(row["word_ids"])
-            raw = _scores_for_row(attr_df, i, len(wids))
-            # The tokenizer's word segmentation can differ slightly from the
-            # whitespace split behind n_words/gold; size to cover all word ids,
-            # then align to the gold range (documented alignment approximation).
-            max_wid = max((w for w in wids if w is not None), default=-1)
-            word_scores = aggregate_subwords_to_words(raw, wids, max(n_words, max_wid + 1))
-        # align predicted word scores and the gold mask to a common length
-        length = min(len(word_scores), len(gold))
-        word_scores, gold = word_scores[:length], gold[:length]
-        k = max(1, round(cfg["k_d"] * length))
-        _, _, f1 = token_prf1_at_k(word_scores, gold, k)
-        f1s.append(f1)
-        auprcs.append(token_auprc(word_scores, gold))
-    return {"token_f1": np.array(f1s), "auprc": np.array(auprcs, dtype=float)}
-
-
-def _cuda() -> bool:
-    """True if a CUDA device is available."""
-    import torch
-
-    return torch.cuda.is_available()
+        visible = VisibleWords.from_json(row["visible_json"])
+        values.append(
+            score_example(
+                adapter.predict_proba,
+                visible,
+                _scores_for_row(attr_df, i, visible),
+                row["gold_visible"],
+                int(row["predicted_class"]),
+                adapter.tokenizer.mask_token_id,
+                cfg,
+                expected_probs=row["class_scores"],
+            )
+        )
+    return {k: np.array([v[k] for v in values]) for k in values[0]}
 
 
 def main() -> None:
-    """Compute all metrics + diagnostics and write metrics.json + figures."""
+    """Verify provenance, compute corrected metrics, optionally publish full-run aggregates."""
     import matplotlib
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-    ensure_dirs()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run-dir", type=Path, default=CACHE_DIR)
+    ap.add_argument("--publish", action="store_true")
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    args = ap.parse_args()
+    manifest = json.loads((args.run_dir / "manifest.json").read_text())
+    completion = json.loads((args.run_dir / "COMPLETE.json").read_text())
+    if completion["run_id"] != run_identity(manifest) or manifest["contract"] != CONTRACT:
+        raise ValueError("incomplete/stale attribution run")
+    for name, digest in completion["files"].items():
+        if file_hash(args.run_dir / name) != digest:
+            raise ValueError("run file changed: " + name)
+    if checkpoint_identity(MODEL_DIR) != manifest["checkpoint"]:
+        raise ValueError("checkpoint changed since attribution")
     cfg = load_config("explainers")
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
-    tok = AutoTokenizer.from_pretrained(MODEL_DIR)
-    adapter = HFModelAdapter(model, tok, device="cuda" if _cuda() else "cpu")
-    sub = pd.read_parquet(CACHE_DIR / "subsample.parquet")
-
-    probs = np.vstack(
-        [adapter.predict_proba(np.asarray(r["input_ids"])[None, :]) for _, r in sub.iterrows()]
-    )
-    preds = probs.argmax(1)
-    labels = sub["label"].to_numpy()
-    diagnostics = {
-        "accuracy": float((preds == labels).mean()),
-        "macro_f1": float(f1_score(labels, preds, average="macro")),
-        "ece": expected_calibration_error(probs[:, 1], preds, labels),
-        "class_balance": float(labels.mean()),
-        "n": len(sub),
-    }
-
-    word_level_map = {
-        "random": False,
-        "grad_x_input": False,
-        "integrated_gradients": False,
-        "lime": True,
-    }
-    results: dict[str, dict] = {}
-    faith_comp: dict[str, np.ndarray] = {}
-    plaus_auprc: dict[str, float] = {}
-    for name in ["random", *REAL_EXPLAINERS]:
-        attr_df = pd.read_parquet(CACHE_DIR / f"{name}.parquet")
-        f = _faithfulness_for(adapter, sub, attr_df, cfg)
-        p = _plausibility_for(sub, attr_df, cfg, word_level_map[name])
-        faith_comp[name] = f["comprehensiveness"]
-        plaus_auprc[name] = float(np.nanmean(p["auprc"]))
-        metrics = {**f, **p}
-        results[name] = {
-            m: dict(
-                zip(
-                    ("ci_low", "mean", "ci_high"),
-                    # drop NaNs (e.g. AUPRC on single-class windows) so the table mean
-                    # matches the figure's nanmean rather than counting NaN as 0
-                    bootstrap_ci(
-                        v[~np.isnan(v)] if v.size else v,
-                        cfg["bootstrap"]["n_resamples"],
-                        cfg["bootstrap"]["alpha"],
-                        cfg["bootstrap"]["seed"],
-                    ),
-                    strict=False,
-                )
+    if cfg != manifest["explainer_config"]:
+        raise ValueError("configuration changed since attribution")
+    sub = pd.read_parquet(args.run_dir / "subsample.parquet")
+    if len(sub) != manifest["n"]:
+        raise ValueError("sample count mismatch")
+    if args.publish and (not manifest["full_test"] or len(sub) != manifest["full_test_n"]):
+        raise ValueError("pilot results cannot replace the current headline")
+    tok = AutoTokenizer.from_pretrained(MODEL_DIR, local_files_only=True)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR, local_files_only=True)
+    adapter = HFModelAdapter(model, tok, args.device)
+    per_method, results = {}, {}
+    boot = cfg["bootstrap"]
+    for name in EXPLAINERS:
+        df = validate_cache(pq.read_table(args.run_dir / f"{name}.parquet"), manifest, name, sub)
+        per_method[name] = evaluate(adapter, sub, df, cfg)
+        results[name] = {}
+        for metric, values in per_method[name].items():
+            valid = values[np.isfinite(values)]
+            lo, mean, hi = (
+                bootstrap_ci(valid, boot["n_resamples"], boot["alpha"], boot["seed"])
+                if len(valid)
+                else (None, None, None)
             )
-            for m, v in metrics.items()
+            results[name][metric] = {"mean": mean, "ci_low": lo, "ci_high": hi, "n": len(valid)}
+    pairs = list(combinations(EXPLAINERS, 2))
+    comparisons = {}
+    for a, b in pairs:
+        test = paired_diff_test(
+            per_method[a]["comprehensiveness"],
+            per_method[b]["comprehensiveness"],
+            boot["n_resamples"],
+            boot["seed"],
+        )
+        # Finite Monte Carlo resolution, not a claim that p is literally zero.
+        test["p_value"] = (test["p_value"] * boot["n_resamples"] + 1) / (boot["n_resamples"] + 1)
+        test["significant"] = test["p_value"] < boot["alpha"] / len(pairs)
+        comparisons[f"{a}_vs_{b}"] = test
+    probs = np.array(sub.class_scores.tolist())
+    labels = sub.label.to_numpy()
+    diagnostics = {
+        "n": len(sub),
+        "accuracy": float((probs.argmax(1) == labels).mean()),
+        "macro_f1": float(f1_score(labels, probs.argmax(1), average="macro")),
+        "ece": expected_calibration_error(probs[:, 1], None, labels),
+        "coverage_mean": float(sub.truncation_coverage.mean()),
+        "partial_word_examples": sum(
+            bool(VisibleWords.from_json(v).partial_word_ids) for v in sub.visible_json
+        ),
+    }
+    ig = json.loads((args.run_dir / "integrated_gradients_diagnostics.json").read_text())
+    residuals = np.abs([d["completeness_residual"] for d in ig])
+    diagnostics["ig_absolute_completeness_residual"] = {
+        "median": float(np.median(residuals)),
+        "max": float(np.max(residuals)),
+        "p95": float(np.quantile(residuals, 0.95)),
+    }
+    lime = json.loads((args.run_dir / "lime_diagnostics.json").read_text())
+
+    def summary(values):
+        values = np.asarray(values, dtype=float)
+        return {
+            "min": float(values.min()),
+            "median": float(np.median(values)),
+            "mean": float(values.mean()),
+            "p95": float(np.quantile(values, 0.95)),
+            "max": float(values.max()),
         }
 
-    pairs = list(combinations(REAL_EXPLAINERS, 2))
-    bonf = cfg["bootstrap"]["alpha"] / len(pairs)
-    sig = {}
+    diagnostics["lime_weighted_r2"] = summary([d["weighted_r2"] for d in lime])
+    diagnostics["lime_absolute_local_error"] = summary(
+        [abs(d["local_prediction"] - d["intact_logit"]) for d in lime]
+    )
+    diagnostics["visible_words"] = summary(
+        [len(VisibleWords.from_json(v).words) for v in sub.visible_json]
+    )
+    diagnostics["truncated_examples"] = sum(
+        len(VisibleWords.from_json(row.visible_json).words) < len(row.words)
+        for row in sub.itertuples()
+    )
+    diagnostics["failed_examples"] = 0
+    diagnostics["method_coverage"] = {name: len(sub) for name in EXPLAINERS}
+    paired_intervals = {}
     for a, b in pairs:
-        t = paired_diff_test(
-            faith_comp[a],
-            faith_comp[b],
-            cfg["bootstrap"]["n_resamples"],
-            cfg["bootstrap"]["seed"],
-        )
-        t["significant"] = bool(t["p_value"] < bonf)
-        sig[f"{a}_vs_{b}"] = t
-
+        paired_intervals[f"{a}_vs_{b}"] = {}
+        for metric in per_method[a]:
+            av, bv = per_method[a][metric], per_method[b][metric]
+            valid = np.isfinite(av) & np.isfinite(bv)
+            lo, mean, hi = bootstrap_ci(
+                (av - bv)[valid], boot["n_resamples"], boot["alpha"], boot["seed"]
+            )
+            paired_intervals[f"{a}_vs_{b}"][metric] = {
+                "mean_diff": mean,
+                "ci_low": lo,
+                "ci_high": hi,
+                "n": int(valid.sum()),
+            }
+    pd.DataFrame(
+        [
+            {"method": name, "example_id": i, **{k: float(v[i]) for k, v in values.items()}}
+            for name, values in per_method.items()
+            for i in range(len(sub))
+        ]
+    ).to_parquet(args.run_dir / "per_example_metrics.parquet")
     out = {
+        "schema": "p2-explainer-metrics-fresh-v2",
+        "paired_difference_ci": paired_intervals,
+        "comparison_family": "six pairwise comprehensiveness comparisons, Bonferroni FWER 0.05; other paired CIs descriptive and unadjusted",
+        "status": "corrected_full_run" if manifest["full_test"] else "corrected_pilot",
+        "contract": CONTRACT,
+        "run_id": run_identity(manifest),
+        "provenance": manifest,
+        "evaluation_code": code_identity(PROJECT_ROOT.parents[1]),
         "diagnostics": diagnostics,
         "metrics": results,
-        "pairwise_comprehensiveness": sig,
-        "bonferroni_alpha": bonf,
+        "pairwise_comprehensiveness": comparisons,
+        "bonferroni_alpha": boot["alpha"] / len(pairs),
+        "uncertainty": "example bootstrap conditional on checkpoint and explainer seed",
     }
-    Path("metrics.json").write_text(json.dumps(out, indent=2, default=float))
-
-    fig, ax = plt.subplots(figsize=(6, 5))
-    for name in ["random", *REAL_EXPLAINERS]:
-        ax.scatter(results[name]["aopc"]["mean"], plaus_auprc[name], label=name)
-        ax.annotate(name, (results[name]["aopc"]["mean"], plaus_auprc[name]))
-    ax.set_xlabel("Faithfulness (AOPC comprehensiveness)")
-    ax.set_ylabel("Plausibility (token AUPRC)")
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(ASSETS / "faithfulness_plausibility.png", dpi=150)
-    print(json.dumps(diagnostics, indent=2))
+    (args.run_dir / "metrics.json").write_text(json.dumps(out, indent=2, allow_nan=False))
+    if args.publish:
+        (PROJECT_ROOT / "metrics.json").write_text(json.dumps(out, indent=2, allow_nan=False))
+        fig, ax = plt.subplots(figsize=(6, 5))
+        for name in EXPLAINERS:
+            x, y = results[name]["aopc"]["mean"], results[name]["auprc"]["mean"]
+            ax.scatter(x, y, label=name)
+            ax.annotate(name, (x, y))
+        ax.set(
+            xlabel="Perturbation sensitivity (word-mask AOPC)",
+            ylabel="Plausibility (visible-word AUPRC)",
+        )
+        ax.legend()
+        fig.tight_layout()
+        fig.savefig(ASSETS / "faithfulness_plausibility.png", dpi=150)
+    print(
+        json.dumps(
+            {"status": out["status"], "diagnostics": diagnostics, "metrics": results}, indent=2
+        )
+    )
 
 
 if __name__ == "__main__":

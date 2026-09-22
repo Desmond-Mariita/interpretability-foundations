@@ -8085,7 +8085,7 @@ as <code>[lo, hi]</code>.  Numbers are populated from <code>metrics.json</code>;
 <pre>
 === Per-explainer faithfulness + plausibility ===
                                      Comp.                  Suff.                  AOPC              Token F1                 AUPRC
-Explainer                                                                                                                          
+Explainer
 random                0.056 [0.030, 0.084]   0.322 [0.281, 0.366]  0.047 [0.032, 0.062]  0.181 [0.169, 0.193]  0.302 [0.279, 0.327]
 grad_x_input          0.027 [0.004, 0.055]   0.354 [0.307, 0.401]  0.033 [0.018, 0.049]  0.225 [0.211, 0.239]  0.333 [0.309, 0.358]
 integrated_gradients  0.520 [0.456, 0.583]  0.016 [-0.000, 0.036]  0.340 [0.306, 0.376]  0.211 [0.196, 0.226]  0.327 [0.303, 0.352]
@@ -8687,7 +8687,7 @@ comprehensiveness is statistically significant after Bonferroni correction over 
 <pre>
 === Pairwise comprehensiveness (* = Bonferroni p &lt; 0.0167) ===
                                      comprehensiveness diff
-Pair                                                       
+Pair
 grad_x_input_vs_integrated_gradients       -0.493  p=0.000*
 grad_x_input_vs_lime                        +0.012  p=0.414
 integrated_gradients_vs_lime               +0.505  p=0.000*

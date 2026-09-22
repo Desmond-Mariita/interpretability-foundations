@@ -1,3 +1,25 @@
+# ADR 002 — ERASER contract correction (2026-09-21)
+
+**Status: accepted correction.** The historical decisions below described intent, not
+fully implemented guarantees. For the operative specification see
+[Project 2 protocol](../../projects/02-text-eraser/REPORT.md).
+
+- Freeze original checkpoint token IDs and map complete whitespace words by explicit
+  character overlap. Never resize attribution scores or perturb full review strings.
+- Exclude partially visible words from word-level metrics and keep their tokens fixed.
+- All core methods share the original predicted class; gradient methods and word-mask
+  LIME use its logit. IG preserves specials and records completeness residuals.
+- Masking preserves positions but does **not** eliminate distribution shift.
+- `DATA_PATH` is the implemented data environment variable.
+- SHAP is excluded from the validated comparison; installing the extra never
+  automatically selected it. The old claimed skip path and CI dependency description
+  were inaccurate (CI installs all extras).
+- The old causal diagnosis of DeBERTa numerical instability was not established by
+  those observations. RoBERTa remains the existing classifier; no replacement training.
+- Historical result numbers below are superseded, not current evidence.
+
+## Historical decision text (superseded where contradicted above)
+
 # ADR 002 — ERASER data governance, truncation contract, mask-replacement erasure, and shap-optional
 
 **Status:** Accepted

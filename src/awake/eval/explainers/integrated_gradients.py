@@ -1,4 +1,4 @@
-"""Integrated Gradients on the embedding layer via captum."""
+"""Integrated Gradients for a fixed logit with a mask-token reference."""
 
 from __future__ import annotations
 
@@ -6,61 +6,61 @@ import numpy as np
 import torch
 from captum.attr import LayerIntegratedGradients
 
-from awake.eval.attribution import TokenAttribution
+from awake.eval.explainers._canonical import fixed_example, tensors, word_result
 
 
 class IntegratedGradientsExplainer:
-    """LayerIntegratedGradients over the model's input embeddings."""
+    """Keep specials, partial-word context, positions and attention fixed."""
 
     name = "integrated_gradients"
 
-    def __init__(self, model, tokenizer, device: str = "cpu", n_steps: int = 50) -> None:
-        """Store model/tokenizer, device, and the IG step count."""
+    def __init__(self, model, tokenizer, device="cpu", n_steps=50, internal_batch_size=4):
+        """Store the model, mask reference and integration budget."""
         self.model = model.to(device).eval()
         self.tokenizer = tokenizer
         self.device = device
         self.n_steps = n_steps
+        self.internal_batch_size = internal_batch_size
 
     def _forward(self, input_ids, attention_mask):
-        """Run the model and return softmax probabilities."""
-        return torch.softmax(
-            self.model(input_ids=input_ids, attention_mask=attention_mask).logits, dim=-1
-        )
+        """Return logits, matching Gradient x Input and word-mask LIME."""
+        return self.model(input_ids=input_ids, attention_mask=attention_mask).logits
 
-    def attribute(self, example: dict) -> TokenAttribution:
-        """Attribute the predicted class with IG; pad baseline as reference."""
-        enc = self.tokenizer(
-            example["text"],
-            truncation=True,
-            max_length=512,
-            return_offsets_mapping=True,
-            return_tensors="pt",
-        )
-        offsets = enc.pop("offset_mapping")[0].tolist()
-        word_ids = enc.word_ids()
-        ids = enc["input_ids"].to(self.device)
-        attn = enc["attention_mask"].to(self.device)
-        probs = self._forward(ids, attn)[0].detach().cpu().numpy()
-        if example.get("predicted_class") is None:
-            pred = int(probs.argmax())
-        else:
-            pred = int(example["predicted_class"])
-        baseline = torch.full_like(ids, self.tokenizer.pad_token_id)
+    def attribute(self, example: dict):
+        """Integrate editable embeddings and record signed completeness residual."""
+        visible, pred, probs = fixed_example(example)
+        ids, attn = tensors(visible, self.device)
+        baseline = ids.clone()
+        editable = np.asarray(visible.token_word) >= 0
+        baseline[:, editable] = self.tokenizer.mask_token_id
+        with torch.no_grad():
+            logits = self._forward(ids, attn)
+            if int(logits.argmax(-1).item()) != pred:
+                raise ValueError("intact target changed")
+            endpoint = float(logits[0, pred].detach())
+            reference = float(self._forward(baseline, attn)[0, pred].detach())
         lig = LayerIntegratedGradients(self._forward, self.model.get_input_embeddings())
-        atts = lig.attribute(
+        atts, delta = lig.attribute(
             ids,
             baselines=baseline,
             target=pred,
             additional_forward_args=(attn,),
             n_steps=self.n_steps,
+            internal_batch_size=self.internal_batch_size,
+            return_convergence_delta=True,
         )
         sal = atts.sum(dim=-1)[0].detach().cpu().numpy()
-        visible = np.array([w is not None for w in word_ids], dtype=bool)
-        return TokenAttribution(
-            tokens=self.tokenizer.convert_ids_to_tokens(ids[0].tolist()),
-            offsets=[tuple(o) for o in offsets],
-            scores=sal,
-            visible_mask=visible,
-            predicted_class=pred,
-            class_scores=probs,
+        residual = float(sal.sum() - (endpoint - reference))
+        return word_result(
+            visible,
+            pred,
+            probs,
+            visible.aggregate(sal),
+            {
+                "completeness_residual": residual,
+                "captum_delta": float(delta.detach().cpu().item()),
+                "endpoint_logit_difference": endpoint - reference,
+                "attribution_sum": float(sal.sum()),
+                "n_steps": self.n_steps,
+            },
         )

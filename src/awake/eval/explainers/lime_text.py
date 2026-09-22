@@ -1,97 +1,78 @@
-"""LIME text explainer; produces whitespace-word-level attributions.
+"""LIME local surrogate over explicit canonical word-presence features.
 
-LIME perturbs whitespace tokens, so its scores are already word-level and use
-the identity alignment path in plausibility scoring (word_level=True).
+Uses lime.lime_base, cosine locality and ridge regression. Absent words are
+masked in the frozen token sequence, not deleted/retokenized. This is the
+word-mask LIME variant, not the old default LimeTextExplainer protocol.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import torch
-from lime.lime_text import LimeTextExplainer
+from lime.lime_base import LimeBase
+from sklearn.metrics import pairwise_distances
 
-from awake.eval.attribution import TokenAttribution
+from awake.eval.explainers._canonical import fixed_example, word_result
 
 
 class LimeExplainer:
-    """Wraps lime.lime_text over an HF classifier (word-level scores)."""
+    """Explain the original predicted-class logit with positional word features."""
 
     name = "lime"
 
-    def __init__(
-        self, model, tokenizer, device: str = "cpu", num_samples: int = 1000, batch_size: int = 64
-    ) -> None:
-        """Store model/tokenizer, device, the LIME sample budget, and batch size."""
+    def __init__(self, model, tokenizer, device="cpu", num_samples=1000, batch_size=8, seed=0):
+        """Store the frozen model and deterministic neighbourhood configuration."""
         self.model = model.to(device).eval()
         self.tokenizer = tokenizer
         self.device = device
         self.num_samples = num_samples
-        self._batch_size = batch_size
-        self.explainer = LimeTextExplainer(class_names=["neg", "pos"], bow=False)
+        self.batch_size = batch_size
+        self.seed = seed
 
-    def _predict_proba(self, texts: list[str]) -> np.ndarray:
-        """Return (n_texts, n_classes) probability matrix for a list of texts.
-
-        Args:
-            texts: Input strings to classify.
-
-        Returns:
-            A float32 array of shape (len(texts), n_classes).
-        """
-        # LIME passes all perturbations at once (num_samples can be ~1000); run in
-        # mini-batches so a large request does not exhaust GPU memory.
-        out = []
-        for start in range(0, len(texts), self._batch_size):
-            chunk = texts[start : start + self._batch_size]
-            enc = self.tokenizer(
-                chunk,
-                truncation=True,
-                max_length=512,
-                padding=True,
-                return_tensors="pt",
-            ).to(self.device)
+    def attribute(self, example: dict):
+        """Fit a local logit surrogate without accessing original hidden text."""
+        visible, pred, probs = fixed_example(example)
+        n = len(visible.words)
+        rng = np.random.RandomState(self.seed)
+        masks = np.ones((self.num_samples, n), dtype=int)
+        for row in masks[1:]:
+            row[rng.choice(n, rng.randint(1, n + 1), replace=False)] = 0
+        outputs = []
+        for start in range(0, len(masks), self.batch_size):
+            batch = visible.perturb(
+                masks[start : start + self.batch_size], self.tokenizer.mask_token_id
+            )
+            ids = torch.as_tensor(batch, device=self.device)
+            attn = torch.tensor([visible.attention_mask], device=self.device).expand(len(batch), -1)
             with torch.no_grad():
-                logits = self.model(**enc).logits
-            out.append(torch.softmax(logits, dim=-1).cpu().numpy())
-        return np.concatenate(out, axis=0)
-
-    def attribute(self, example: dict) -> TokenAttribution:
-        """Run LIME and map per-word weights back to word order.
-
-        Args:
-            example: Dict with keys ``text`` (str) and ``predicted_class``
-                (int or None). When None, the argmax of the model output is
-                used as the target class.
-
-        Returns:
-            A :class:`TokenAttribution` with ``word_level=True`` and one score
-            per whitespace-split word.
-        """
-        text = example["text"]
-        words = text.split()
-        probs = self._predict_proba([text])[0]
-        if example.get("predicted_class") is None:
-            pred = int(probs.argmax())
-        else:
-            pred = int(example["predicted_class"])
-        exp = self.explainer.explain_instance(
-            text,
-            self._predict_proba,
-            num_features=len(words),
-            num_samples=self.num_samples,
-            labels=(pred,),
+                outputs.append(self.model(input_ids=ids, attention_mask=attn).logits.cpu().numpy())
+        logits = np.concatenate(outputs)
+        if int(logits[0].argmax()) != pred:
+            raise ValueError("intact target changed")
+        distances = pairwise_distances(masks, masks[0:1], metric="cosine").ravel() * 100
+        base = LimeBase(lambda d: np.sqrt(np.exp(-(d**2) / 25**2)), random_state=self.seed)
+        intercept, pairs, score, local_prediction = base.explain_instance_with_data(
+            masks,
+            logits,
+            distances,
+            pred,
+            n,
+            feature_selection="none",
         )
-        scores = np.zeros(len(words))
-        # LIME returns (token_index_in_split, weight) pairs when bow=False
-        for idx, weight in exp.as_map()[pred]:
-            if idx < len(words):
-                scores[idx] = weight
-        return TokenAttribution(
-            tokens=words,
-            offsets=[(0, 0)] * len(words),
-            scores=scores,
-            visible_mask=np.ones(len(words), dtype=bool),
-            predicted_class=pred,
-            class_scores=probs,
-            word_level=True,
+        if sorted(i for i, _ in pairs) != list(range(n)):
+            raise ValueError("LIME feature identities do not match canonical words")
+        weights = np.empty(n)
+        for i, weight in pairs:
+            weights[i] = weight
+        return word_result(
+            visible,
+            pred,
+            probs,
+            np.abs(weights),
+            {
+                "weighted_r2": float(score),
+                "intercept": float(intercept),
+                "local_prediction": float(np.asarray(local_prediction).item()),
+                "intact_logit": float(logits[0, pred]),
+            },
         )

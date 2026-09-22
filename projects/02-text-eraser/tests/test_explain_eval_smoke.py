@@ -1,47 +1,84 @@
-"""Smoke and unit tests for the P2 explain (20_explain) and eval (30_eval) scripts."""
+"""Offline end-to-end canonical explanation, cache, and evaluation checks."""
 
 import importlib
 import pathlib
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+import torch
+from tests.test_eval_explainers import CharacterTokenizer, LinearClassifier, example
+
+from awake.eval.visible_words import canonical_visible
 
 sys.path.insert(0, str(pathlib.Path("projects/02-text-eraser/scripts").resolve()))
-stub = importlib.import_module("_stub_model")
 explain_mod = importlib.import_module("20_explain")
+eval_mod = importlib.import_module("30_eval")
+contract = importlib.import_module("_contract")
 
 
 @pytest.mark.smoke
-def test_explain_writes_cache_with_model_hash(tmp_path):
-    """Verify that run_one_explainer writes a Parquet file with the expected model hash and explainer name in its metadata."""
-    model, tok = stub.build_stub_model_and_tokenizer()
-    df = pd.DataFrame({"text": ["w5 w6 w7", "w8 w9 w10"], "label": [0, 1]})
-    path = explain_mod.run_one_explainer(
-        "grad_x_input",
-        model,
-        tok,
-        df,
-        out_dir=tmp_path,
-        model_sha="abc123",
-        device="cpu",
+def test_all_methods_cache_to_metrics(tmp_path):
+    """Run every core method through persisted mappings and common interventions."""
+    tok, model = CharacterTokenizer(), LinearClassifier()
+    visible = canonical_visible("a bb a incomplete SECRET", tok, 9)
+    intact = example(model, visible)
+    sub = pd.DataFrame(
+        [
+            {
+                "visible_json": visible.to_json(),
+                "predicted_class": intact["predicted_class"],
+                "class_scores": intact["class_scores"],
+                "gold_visible": [1, 0, 1],
+            }
+        ]
     )
-    meta = pq.read_table(path).schema.metadata
-    assert meta[b"model_sha256"] == b"abc123"
-    assert meta[b"explainer_name"] == b"grad_x_input"
+    cfg = explain_mod.load_config("explainers")
+    manifest = {"fixture": "offline"}
 
+    def predict(ids, attention_mask):
+        with torch.no_grad():
+            return (
+                model(input_ids=torch.tensor(ids), attention_mask=torch.tensor(attention_mask))
+                .logits.softmax(-1)
+                .numpy()
+            )
 
-eval_mod = importlib.import_module("30_eval")
+    adapter = SimpleNamespace(predict_proba=predict, tokenizer=tok)
+    for name in explain_mod.EXPLAINERS:
+        path = explain_mod.run_one_explainer(name, model, tok, sub, tmp_path, manifest, "cpu", cfg)
+        table = pq.read_table(path)
+        df = contract.validate_cache(table, manifest, name, sub)
+        results = eval_mod.evaluate(adapter, sub, df, cfg)
+        assert set(results) == {"comprehensiveness", "sufficiency", "aopc", "token_f1", "auprc"}
+        assert all(np.isfinite(v).all() for v in results.values())
+        with pytest.raises(ValueError, match="stale"):
+            contract.validate_cache(table.replace_schema_metadata({}), manifest, name, sub)
+        with pytest.raises(ValueError, match="stale"):
+            contract.validate_cache(table, {"fixture": "different"}, name, sub)
+        for changed in [
+            df.iloc[:-1],
+            pd.concat([df, df.iloc[:1]]),
+            df.assign(word="WRONG"),
+            df.assign(predicted_class=0),
+        ]:
+            corrupt = pa.Table.from_pandas(changed).replace_schema_metadata(table.schema.metadata)
+            with pytest.raises(ValueError, match="identity"):
+                contract.validate_cache(corrupt, manifest, name, sub)
+        with pytest.raises(ValueError, match="identity"):
+            eval_mod._scores_for_row(df.iloc[:-1], 0, visible)
+        with pytest.raises(ValueError, match="nonfinite"):
+            eval_mod._scores_for_row(df.assign(score=np.nan), 0, visible)
 
 
 @pytest.mark.unit
-def test_expected_calibration_error_zero_for_perfect():
-    """ECE is near-zero when predicted confidences exactly match per-bin accuracy."""
-    # confidences equal accuracy in each bin -> ECE small
-    probs = np.array([0.9, 0.9, 0.1, 0.1])
-    preds = np.array([1, 1, 0, 0])
-    labels = np.array([1, 1, 0, 0])
-    ece = eval_mod.expected_calibration_error(probs, preds, labels, n_bins=5)
-    assert ece == pytest.approx(0.1, abs=0.05)
+def test_expected_calibration_error():
+    """Check positive-class reliability including zero confidence."""
+    assert eval_mod.expected_calibration_error([0, 1], None, [0, 1]) == 0
+    assert eval_mod.expected_calibration_error(
+        [0.9, 0.9, 0.1, 0.1], None, [1, 1, 0, 0]
+    ) == pytest.approx(0.1)

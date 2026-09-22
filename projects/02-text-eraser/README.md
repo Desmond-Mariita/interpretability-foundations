@@ -1,100 +1,33 @@
-# 02 — Which text-classification explainer is actually faithful?
+# ERASER Movies: perturbation faithfulness versus rationale plausibility
 
-**Question.** When LIME, Integrated Gradients, Gradient×Input, and SHAP PartitionExplainer
-disagree about which tokens drove a fine-tuned sentiment classifier's decision, which
-explanations are *faithful* (reflect what the model actually used) and which are merely
-*plausible* (agree with human rationales)?  Do the two properties coincide?
+Do explanations identify words whose masking changes a sentiment classifier's decision,
+and do those words overlap human rationales? These are separate questions.
 
-**Answer.** **They don't coincide.** On a RoBERTa-base classifier (test accuracy 0.925),
-**Integrated Gradients is the only faithful explainer** — comprehensiveness 0.52 and AOPC
-0.34, vs. ~0.02–0.06 for Gradient×Input, LIME, and even the random baseline (IG's lead is
-significant, paired bootstrap p < 0.001). Yet on **plausibility** all four methods barely
-clear the random floor (AUPRC 0.30–0.33), and IG is *not* the most plausible. The
-"faithful **and** plausible" quadrant stays empty — confident saliency maps (Gradient×Input,
-LIME) can be no more faithful than random. See [`REPORT.md`](REPORT.md) and
-[`metrics.json`](metrics.json).
+**Status (2026-09-22): corrected full real-data rerun completed and published.** Previous
+comparative results are superseded because attribution alignment, LIME's visible input,
+and target scalars were inconsistent. Under the corrected v2 protocol, Integrated
+Gradients produced the largest measured perturbation-faithfulness effect among the
+evaluated methods, with statistical support at the Bonferroni-corrected level.
+See [repair report](REPAIR_REPORT.md), [protocol](REPORT.md), and the explicitly
+[superseded record](results/superseded-v1/README.md).
 
-**Why it matters.** Confident-looking token-attribution explanations are easy to produce
-and easy to trust by default.  The ERASER benchmark supplies human-annotated rationales
-so we can check explainers against *both* an internal standard (faithfulness: does erasing
-these tokens actually change the model's prediction?) and an external one (plausibility:
-do humans agree these are the right tokens?).  An explanation that scores high on
-plausibility but low on faithfulness offers an appealing narrative that does not accurately
-represent the model's computation.
-
-![hero](assets/faithfulness_plausibility.png)
-
-## Method
-
-Fine-tune `roberta-base` (binary sentiment head) on the ERASER Movies dataset. (The spec
-named `microsoft/deberta-v3-base`, but DeBERTa-v3 diverges to NaN under this environment's
-transformers/torch/CUDA stack — a library bug; RoBERTa-base trains cleanly and nothing in
-the method is DeBERTa-specific. See ADR 002 / `REPORT.md §3`.) For each prediction across
-the test split (199 examples), run four explainers plus a random baseline:
-
-| Explainer | Role |
-|---|---|
-| LIME | Surrogate-model attribution (whitespace-level) |
-| Integrated Gradients | Gradient-based; axiomatic attribution |
-| Gradient×Input | Gradient × input embedding per token (replaces attention rollout) |
-| SHAP PartitionExplainer | Shapley-value attribution (optional extra `[explain-shap]`) |
-| Random baseline | Uniform random scores — the floor reference |
-
-**Faithfulness metrics:** ERASER-exact comprehensiveness and sufficiency at the dataset
-rationale budget `k_d`, plus AOPC (mean probability drop over progressive masking at
-bins 0–50%).
-
-**Plausibility metrics:** token F1 and AUPRC against human rationale masks, with
-subword-to-word aggregation (max |score| over subwords of each whitespace word).
-
-Bootstrap 95% CIs (paired, 2 000 resamples) + Bonferroni-corrected pairwise tests over
-the real-explainer pairs.
-
-**512-subword truncation contract.** Reviews are tokenized once and frozen; all erasure,
-plausibility, and attribution operate on this frozen visible sequence.  Gold rationale
-masks are clipped to the visible window.  Per-example `truncation_coverage` is recorded
-(mean ~0.54 on this run; reviews average ~795 words vs. the 512-subword window) and
-carried as a diagnostic and a stated limitation.
-
-See [`REPORT.md`](REPORT.md) for the full methodology and limitations.
+The repaired comparison uses random word rankings, Gradient x Input, Integrated
+Gradients and positional word-mask LIME. All operate on one frozen token sequence,
+with complete visible whitespace words mapped by character overlap. Gradient methods
+and LIME target the original predicted-class **logit**. Perturbation metrics measure
+changes in that same class's **probability**. Human-rationale overlap measures plausibility.
 
 ## Reproduce
 
-Requires a CUDA GPU (CPU-only is slow but functional; set `model.yaml: fp16: false`).
+The original v1 checkpoint is unavailable; the authoritative results use the fresh-v2
+checkpoint trained under the frozen protocol (commit `6e3652f`) and verified by the
+permanent pilot and full-run audits. Follow the staged commands in
+[REPAIR_REPORT.md](REPAIR_REPORT.md#reproduction).
+Prepared rows, token/word caches and original data remain private and gitignored.
+Only a verified full run may publish aggregate metrics.
 
-```
-# From the repo root:
-just setup
+Installing `explain-shap` does **not** add SHAP to this evaluation. Its legacy adapter
+has not been validated against the repaired contract and is excluded.
 
-# Download and prepare the ERASER Movies data (nothing committed):
-just data && just prepare
-
-# Fine-tune the classifier (roberta-base):
-just train
-
-# Run explainers (add [explain-shap] extra first if you want PartitionSHAP):
-just explain
-
-# Compute metrics, generate figures, write metrics.json:
-just eval
-
-# Render the notebook (requires executed outputs):
-just notebook
-```
-
-To include the optional SHAP PartitionExplainer:
-
-```
-uv sync --extra explain-shap
-just explain          # now picks up shap_partition.py as well
-```
-
-The `shap` extra pins `numba>=0.59` and `llvmlite>=0.42`; these are required for
-Python 3.11 wheels.  See ADR 002 for the rationale.
-
-## Limitations
-
-- 512-subword truncation drops evidence in long reviews; see `REPORT.md §8`.
-- Mask-replacement erasure is an approximation of ERASER's literal token-removal.
-- `token_iou` is a custom metric, not ERASER's span-level IoU.
-- Single model + single dataset; no generalisation claim.
+The old executed notebooks and plot are archived with superseded results. They are
+not evidence for the repaired protocol. Tutorial production is outside this repair.

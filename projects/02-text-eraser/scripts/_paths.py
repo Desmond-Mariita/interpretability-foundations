@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS = PROJECT_ROOT / "outputs"
 PREPARED = OUTPUTS / "prepared"
 MODEL_DIR = OUTPUTS / "model"
-CACHE_DIR = OUTPUTS / "attributions"
+CACHE_DIR = OUTPUTS / "attributions" / "v2"
 ASSETS = PROJECT_ROOT / "assets"
 CONFIGS = PROJECT_ROOT / "configs"
 
