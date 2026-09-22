@@ -24,7 +24,7 @@ the toolkit for auditing a model, not just reporting its accuracy.
 
 | | Project | Question | Headline result |
 |---|---|---|---|
-| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | What accuracy do interpretable models cost on ICU mortality risk? | Glassbox **EBM within 1.0 AUROC point of LightGBM** (0.879 vs 0.889) and **best-calibrated** of four models (Brier 0.075 vs 0.091). |
+| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | What accuracy do interpretable models cost on ICU mortality risk? | Glassbox **EBM within 1.0 AUROC point of LightGBM** (0.879 vs 0.889) and **lowest Brier** of four models (0.075 vs 0.091). |
 | 2 | [`02-text-eraser`](projects/02-text-eraser) | Which text-classification explainer is actually *faithful* — and is faithful the same as *plausible*? | **No.** On the ERASER Movies benchmark, **Integrated Gradients is the only faithful explainer** (comprehensiveness 0.52 vs ~0.02–0.06; p < 0.001), yet every method barely beats random on agreement with human rationales. Confident saliency maps can be no more faithful than chance. |
 | 3 | [`03-multimodal-hatefulmemes`](projects/03-multimodal-hatefulmemes) | In a fused image+text decision, how much came from each modality? | **The image.** 2-player interventional modality Shapley: mean\|φ\| **image 0.84 vs text 0.68**; text-only ≈ chance (AUROC 0.575). Live Gradio Space. |
 | 4 | [`04-vqa-aokvqa`](projects/04-vqa-aokvqa) | Do caption-then-LLM explanations actually describe the *image*? | A vision-ablation probe with a paired baseline measures Δ = whether the image or the model's *own rationale* drives answer recovery — across caption-then-LLM, 3B and size-matched 7B direct-VLM pipelines on A-OKVQA. |
