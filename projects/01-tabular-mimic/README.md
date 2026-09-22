@@ -2,7 +2,7 @@
 
 **Question.** How much accuracy do we trade away when we restrict ourselves to intrinsically interpretable models on a real critical-care dataset, and what do post-hoc explanations add when we don't?
 
-**Answer.** On 68,770 ICU stays from MIMIC-IV, **the glassbox EBM lands within 1.0 AUROC point of LightGBM** (0.879 vs. 0.889 on a held-out test set of 10,197 stays) — and **the EBM is the best-calibrated of the four models** by Brier score (0.075 vs. 0.091 for LightGBM). The intrinsically interpretable L2 Logistic and Decision Tree pay a meaningful accuracy cost (0.850 and 0.788 respectively) but for very different reasons: LR can't model interactions, the depth-5 tree can't fit the signal density.
+**Answer.** On 68,770 ICU stays from MIMIC-IV, **the glassbox EBM lands within 1.0 AUROC point of LightGBM** (0.879 vs. 0.889 on a held-out test set of 10,197 stays) — and **the EBM achieves the lowest Brier score of the four models** (0.075 vs. 0.091 for LightGBM), i.e. the best overall squared probabilistic error on the test set. The intrinsically interpretable L2 Logistic and Decision Tree pay a meaningful accuracy cost (0.850 and 0.788 respectively) but for very different reasons: LR can't model interactions, the depth-5 tree can't fit the signal density.
 
 **Why it matters.** Clinicians making rapid triage decisions need risk estimates they can interrogate, not just trust.
 
@@ -17,7 +17,24 @@
 | L2 Logistic | 0.842 ± 0.003 | 0.850 | 0.515 | 0.159 | Intrinsic (coefficients) |
 | Decision Tree | 0.784 ± 0.004 | 0.788 | 0.411 | 0.184 | Intrinsic (decision path) |
 
-Calibration tells the second story — see [`assets/calibration.png`](assets/calibration.png). EBM tracks the reliability diagonal closely; LightGBM is mildly under-confident; the class-balanced LR and DT systematically *over*-predict mortality at the high end, which inflates their Brier despite reasonable AUROC.
+`±` is the standard deviation across the 5 CV folds — descriptive fold-to-fold
+variability, not a confidence interval.
+
+**Probability caveat.** LR and DT are trained with `class_weight='balanced'`
+and LightGBM with `scale_pos_weight ≈ 6.7`; both reweight the loss and shift
+the raw predicted probabilities. No post-hoc calibration was applied, so the
+probabilities above should be read as raw model outputs, not as calibrated
+risk estimates.
+
+Calibration tells the second story — see [`assets/calibration.png`](assets/calibration.png).
+The reliability diagram (10 bins on the test set, ≈1,020 stays per bin) shows
+the EBM tracking the diagonal most closely of the four; LightGBM's curve sits
+below the diagonal across the range — it *over*-predicts mortality, with the
+widest gap at the high end, the expected signature of `scale_pos_weight`; and
+the class-balanced LR and DT systematically *over*-predict mortality at the
+high end, which inflates their Brier despite reasonable AUROC. Brier score is
+reported as overall probabilistic error, not as a calibration measure on its
+own — it also rewards discrimination and matching the base rate.
 
 ## Top-feature agreement
 
@@ -26,6 +43,15 @@ The four models broadly agree on what matters at 24h — see [`feature_agreement
 ## Method
 
 MIMIC-IV v3.1 (spec named v3.0; v3.1 is forward-compatible). Cohort: adult patients on their first ICU stay per hospital admission with either ≥24h of ICU LOS or an in-hospital death inside the first 24h (N = 68,770 stays from 54,964 subjects; 13.0% mortality base rate). Features: vitals from `chartevents` and labs from `labevents`, both filtered to the first 24h after `intime`, aggregated as first / min / max / mean. Itemid lists and physiologic clipping bounds mirror the MIT-LCP `firstday_*` concept views.
+
+**Temporal setup.** This is a *retrospective* modeling experiment, not a
+prospective hour-24 prediction: the feature window is the first 24 h after
+ICU admission (`intime`), and the outcome is in-hospital mortality at any
+point during that admission. Stays that die within the first 24 h are
+included as positives; their observation window ends at the death time, so no
+feature is ever recorded after the outcome being predicted. One cohort stay
+has zero in-window measurements and is dropped by the feature-table join; the
+modeling frame is 68,769 stays (58,572 train / 10,197 test).
 
 Train/test split is **grouped on `subject_id`** to prevent patient leakage: 15% of subjects held out for test (10,197 stays), with 5-fold `GroupKFold` CV on the remainder.
 
@@ -60,20 +86,6 @@ just eval         # ~3 s   — writes assets/{calibration,roc_curves,frontier}.p
 
 - No fairness or slice analysis in v1.0 (deferred to v1.1).
 - No counterfactual generation in v1.0 (deferred).
-- The `class_weight='balanced'` policy on LR/DT is honest about handling imbalance but worsens their calibration. A v1.1 follow-up could compare with cost-sensitive thresholds or Platt scaling.
-- Findings are illustrative of trade-offs on this cohort; not a clinical claim.
-
-## Reproduce
-
-```
-just setup
-just data    # prints the MIMIC-IV access + cohort instructions; no data committed
-just train
-just eval
-```
-
-## Limitations
-
-- No fairness or slice analysis in v1.0 (deferred to v1.1).
-- No counterfactual generation in v1.0 (deferred).
+- The `class_weight='balanced'` policy on LR/DT and `scale_pos_weight` on LightGBM bias the raw predicted probabilities, and no post-hoc calibration was applied; the reliability diagram, not the probabilities themselves, is the calibration evidence. A v1.1 follow-up could compare with cost-sensitive thresholds or Platt scaling.
+- The cohort is restricted to stays with ≥24h of ICU observation or an early in-hospital death; stays that leave the ICU within 24h and die later in hospital are excluded, so the cohort is not "all ICU admissions".
 - Findings are illustrative of trade-offs on this cohort; not a clinical claim.

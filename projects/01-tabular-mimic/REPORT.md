@@ -38,8 +38,10 @@ Inclusion filters:
   `anchor_age + (admittime.year - anchor_year)`).
 - First ICU stay per hospital admission (`ROW_NUMBER() OVER
   (PARTITION BY hadm_id ORDER BY intime) = 1`).
-- LOS in ICU ≥ 24 h, **or** an in-hospital death inside the first 24 h
-  (so the first-24 h feature window is always well-defined).
+- LOS in ICU ≥ 24 h, **or** an in-hospital death inside the first 24 h —
+  early deaths are included so they are not silently dropped from the
+  positive class; for those stays the observation window ends at the
+  death time.
 
 | | |
 |---|---|
@@ -51,6 +53,30 @@ Inclusion filters:
 | Median LOS in ICU | 2.35 days |
 
 Full manifest: [`cohort_stats.json`](cohort_stats.json).
+
+### 2.1 Temporal setup
+
+This is a **retrospective** modeling experiment, not a prospective
+hour-24 prediction:
+
+- **Anchor.** The ICU admission time (`intime`).
+- **Feature window.** `[intime, intime + 24 h)` — every vital and lab value
+  is filtered to this window (labs joined on `subject_id + hadm_id` carry
+  the same time filter, since `labevents` has no `stay_id`).
+- **Outcome.** In-hospital mortality during that admission
+  (`hospital_expire_flag`), at any horizon up to discharge. The label is
+  retrospective: it is not known at hour 24.
+- **Early deaths.** Stays with `deathtime ≤ intime + 24 h` are included as
+  positives. They have no measurements after death, so their observation
+  window is truncated at the death time and no feature is ever recorded
+  after the outcome being predicted.
+- **No post-outcome features.** For every stay, all features precede the
+  outcome. `deathtime`, `outtime`, and `los_icu_days` are excluded from the
+  modeling frame entirely.
+
+The setup therefore supports claims about *predicting in-hospital mortality
+from first-24h ICU features in a retrospective cohort*; it does not support
+claims about prospective deployment at an hour-24 decision point.
 
 ## 3. Features
 
@@ -77,7 +103,9 @@ measurements and is dropped by the inner join) × 76 columns pre-encoding.
 Subject-grouped split, **not** stay-grouped:
 
 - 15 % of *subjects* held out for test (10,197 stays from 8,245 subjects).
-- 5-fold `GroupKFold` on the remaining 85 % (58,573 stays).
+- 5-fold `GroupKFold` on the remaining 85 % (58,573 cohort stays; the
+  modeling frame trains on 58,572 after the feature inner join drops the
+  one stay with zero in-window measurements, see §3).
 - Deterministic via `awake.utils.seed_everything(1337)`.
 
 A smoke test in `tests/test_cohort_smoke.py` checks the patient-leakage
@@ -104,10 +132,15 @@ Configs in [`configs/models.yaml`](configs/models.yaml).
 
 | Model | CV AUROC | Test AUROC | Test AUPRC | Brier | Log-loss |
 |---|---|---|---|---|---|
-| LightGBM | 0.875 ± 0.004 | **0.889** | **0.632** | 0.091 | 0.302 |
-| EBM | 0.868 ± 0.003 | 0.879 | 0.608 | **0.075** | 0.247 |
-| L2 Logistic | 0.842 ± 0.003 | 0.850 | 0.515 | 0.159 | 0.473 |
-| Decision Tree | 0.784 ± 0.004 | 0.788 | 0.411 | 0.184 | 0.527 |
+| LightGBM | 0.875 ± 0.004 | **0.889** | **0.632** | 0.091 | 0.290 |
+| EBM | 0.868 ± 0.003 | 0.879 | 0.608 | **0.075** | 0.251 |
+| L2 Logistic | 0.842 ± 0.003 | 0.850 | 0.515 | 0.159 | 0.485 |
+| Decision Tree | 0.784 ± 0.004 | 0.788 | 0.411 | 0.184 | 0.546 |
+
+Test AUROC / AUPRC / Brier / log-loss are the test-set values from
+[`metrics.json`](metrics.json). `±` on CV AUROC is the standard deviation
+across the 5 CV folds — descriptive fold-to-fold variability, not a
+confidence interval.
 
 Full per-fold breakdown in [`metrics.json`](metrics.json).
 
@@ -116,10 +149,16 @@ Full per-fold breakdown in [`metrics.json`](metrics.json).
 - **EBM is within 1.0 AUROC point of LightGBM** and within 2.4 AUPRC
   points. The accuracy cost of going glassbox at the additive-model tier
   is small on this task.
-- **EBM has the best Brier score of any of the four.** LightGBM's higher
-  Brier despite higher AUROC is the calibration signature of
-  `scale_pos_weight` — the rankings are right, the magnitudes are off.
-- **L2 Logistic loses 4 AUROC points to EBM**, almost entirely because it
+- **EBM achieves the lowest Brier score of any of the four** (0.075 vs
+  0.091 for LightGBM), i.e. the best overall squared probabilistic error on
+  the test set. Brier score is not a pure calibration measure — it also
+  rewards discrimination and matching the base rate — so this is read
+  alongside the reliability diagram in §6.3, not as a calibration claim on
+  its own. LightGBM's higher Brier despite higher AUROC is consistent with
+  `scale_pos_weight` shifting its predicted probabilities upward (visible
+  as over-prediction in §6.3): the rankings are right, the probability
+  magnitudes are biased.
+- **L2 Logistic loses ~3 AUROC points to EBM**, almost entirely because it
   cannot model interactions across the 18 vital / lab signals. Doubling
   features wouldn't close that gap; non-linearity would.
 - **Decision Tree at depth 5 underfits.** The shallow tree was chosen so
@@ -131,18 +170,34 @@ Full per-fold breakdown in [`metrics.json`](metrics.json).
 
 ### 6.3 Calibration
 
-See [`assets/calibration.png`](assets/calibration.png).
+See [`assets/calibration.png`](assets/calibration.png). The figure plots,
+per model, the mean predicted probability against the empirical positive
+rate in 10 probability bins on the test set (≈1,020 stays per bin). No ECE
+or other summary calibration metric was computed; the assessment below is
+qualitative, from the figure.
 
-- **EBM** tracks the diagonal closely across all 10 bins.
-- **LightGBM** is mildly under-confident at the high end (predicts 0.95 →
-  empirical ~0.88), which is the expected signature of `scale_pos_weight`.
+- **EBM** tracks the diagonal closely in most bins, with modest deviations
+  in the mid-range (bins 6–7 sit ~0.05 above the diagonal, bin 8 ~0.1
+  below). It is the closest of the four to the diagonal overall.
+- **LightGBM** sits below the diagonal across the whole range — it
+  *over*-predicts mortality everywhere, with the widest gap at the high end
+  (mean predicted ≈ 0.93 → empirical ≈ 0.84). This upward shift of the
+  probabilities is the expected signature of `scale_pos_weight`.
 - **L2 Logistic** and **Decision Tree** both over-predict mortality at
-  high predicted probabilities (predict 0.95 → empirical ~0.72). This is
-  the cost of `class_weight='balanced'` for a downstream user who reads
-  the predicted probability as a risk; their *rank ordering* is fine.
+  high predicted probabilities (mean predicted ≈ 0.91 → empirical ≈ 0.69
+  for LR and ≈ 0.73 for DT). This is the cost of `class_weight='balanced'`
+  for a downstream user who reads the predicted probability as a risk;
+  their *rank ordering* is fine.
 
-Calibration matters more than AUROC for this kind of bedside-decision
-framing, which is why this project reports both.
+All four sets of probabilities are raw model outputs: LR/DT use
+`class_weight='balanced'` and LightGBM uses `scale_pos_weight`, both of
+which bias the predicted probabilities, and no post-hoc calibration was
+applied. The reliability diagram — not Brier score alone — is the basis
+for the calibration statements above.
+
+Both ranking (AUROC/AUPRC) and probability quality (Brier, log-loss, the
+reliability diagram) are reported, because a downstream user reading a
+predicted probability as a risk needs both.
 
 ### 6.4 What the four models agree on
 
@@ -169,12 +224,22 @@ picking up real signal rather than spurious correlations.
 - **No fairness or slice analysis** in v1.0. The spec defers this to v1.1
   to keep the scope honest about what's been measured.
 - **No counterfactual generation** (DiCE, etc.) in v1.0; deferred.
+- **Fold-to-fold variability only.** The CV `±` values are fold standard
+  deviations; no confidence intervals or significance tests were computed.
 - **One configuration per family.** Light tuning could move EBM and
   LightGBM by another 0.5–1 AUROC each, but the spec deliberately framed
   this as a *comparison at sensible defaults* rather than a tuning race.
-- **`class_weight='balanced'` worsens calibration on LR / DT.** Documented
-  here rather than papered over; a v1.1 follow-up could compare against
-  post-hoc Platt scaling or isotonic regression.
+- **`class_weight='balanced'` worsens calibration on LR / DT**, and
+  `scale_pos_weight` shifts LightGBM's probabilities upward; no post-hoc
+  calibration was applied to any model. Documented here rather than papered
+  over; a v1.1 follow-up could compare against post-hoc Platt scaling or
+  isotonic regression (evaluated strictly on test).
+- **The cohort is not "all ICU admissions".** Stays with <24h of ICU
+  observation are included only when an in-hospital death occurred within
+  24h of ICU admission; stays that left the ICU within 24h and died later
+  in hospital are excluded. This mirrors MIT-LCP firstday-style cohorts but
+  is still a selection choice worth keeping in mind when comparing against
+  other MIMIC mortality numbers.
 - **One stay is dropped** from the modeling frame (the inner join with
   features). It is plausibly an immediate-death case with no in-window
   measurements; not investigated.
