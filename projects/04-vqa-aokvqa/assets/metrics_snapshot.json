@@ -1,0 +1,102 @@
+{
+  "_provenance": {
+    "description": "Authoritative aggregate metrics of the real A-OKVQA run (2026-05-27), copied verbatim from the recorded stdout of the executed notebook notebooks/01-vqa-consistency.ipynb (committed with outputs).",
+    "note": "outputs/metrics.json from the real run was gitignored and is not preserved. Every value below is notebook-verified. Values that appear only in REPORT.md and not in the notebook (divergence contingency counts, filtered-subset accuracy, paired-parsed-only sensitivity) are intentionally NOT duplicated here; they are marked there as recorded-at-run-time and not re-derivable from surviving artifacts.",
+    "delta_ci_note": "Delta CIs are the paired-bootstrap 95% CIs (2,000 resamples, seed 0) as recorded in the notebook output; the per-item vectors they were computed from are not preserved, so they cannot be recomputed from surviving artifacts.",
+    "metrics_json_committed": false,
+    "snapshot_written": "2026-09-22 (claims/provenance repair; no rerun)"
+  },
+  "run": {
+    "split": "validation",
+    "dataset": "HuggingFaceM4/A-OKVQA",
+    "n": 1145,
+    "n_leak_flagged": 805,
+    "n_filtered": 340,
+    "prompt_variant": "main",
+    "b7_completed": true,
+    "generation": {
+      "do_sample": false,
+      "max_new_tokens": 256,
+      "torch_dtype": "float16",
+      "device_map": "cuda:0",
+      "bootstrap_seed": 0,
+      "bootstrap_resamples": 2000
+    },
+    "model_revisions": {
+      "blip2": "59a1ef6c1e5117b3f65523d1c6066825bcf315e3",
+      "qwen_lm": "a09a35458c702b33eeacc393d103063234e8bc28",
+      "qwen_vl_3b": "66285546d2b821cf421d4f5eb2576359d3770cd3",
+      "qwen_vl_7b": "cc594898137f460bfe9f0759e9844b3ce807cfb5"
+    }
+  },
+  "unfiltered": {
+    "pipelines": {
+      "A": {
+        "accuracy": 0.6279,
+        "parse_rate_answer": 0.9633,
+        "expl_leak_rate": 0.8122,
+        "consistency": {
+          "with_expl": 0.924,
+          "no_expl": 0.5441,
+          "delta": 0.3799,
+          "delta_ci": [0.3511, 0.4087]
+        }
+      },
+      "B": {
+        "accuracy": 0.8306,
+        "parse_rate_answer": 0.9974,
+        "expl_leak_rate": 0.2524,
+        "consistency": {
+          "with_expl": 0.6664,
+          "no_expl": 0.5223,
+          "delta": 0.1441,
+          "delta_ci": [0.1153, 0.1703]
+        }
+      },
+      "B7": {
+        "accuracy": 0.8734,
+        "parse_rate_answer": 1.0,
+        "expl_leak_rate": 0.8664,
+        "consistency": {
+          "with_expl": 0.986,
+          "no_expl": 0.4996,
+          "delta": 0.4865,
+          "delta_ci": [0.4559, 0.5162]
+        }
+      }
+    },
+    "divergence": {
+      "A_vs_B": {"overall": 0.3747, "overall_ci": [0.3467, 0.4026]},
+      "A_vs_B7": {"overall": 0.3642, "overall_ci": [0.3362, 0.393]},
+      "B_vs_B7": {"overall": 0.1389, "overall_ci": [0.1188, 0.1598]}
+    }
+  },
+  "filtered": {
+    "pipelines": {
+      "A": {
+        "consistency": {
+          "with_expl": 0.9235,
+          "no_expl": 0.5618,
+          "delta": 0.3618,
+          "delta_ci": [0.3088, 0.4176]
+        }
+      },
+      "B": {
+        "consistency": {
+          "with_expl": 0.6735,
+          "no_expl": 0.5147,
+          "delta": 0.1588,
+          "delta_ci": [0.1118, 0.2088]
+        }
+      },
+      "B7": {
+        "consistency": {
+          "with_expl": 0.9853,
+          "no_expl": 0.5206,
+          "delta": 0.4647,
+          "delta_ci": [0.4088, 0.5206]
+        }
+      }
+    }
+  }
+}

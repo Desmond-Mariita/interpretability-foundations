@@ -8,6 +8,8 @@ multi-panel hero figure.
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -115,14 +117,107 @@ def _none_list(series) -> list:
     return [None if (isinstance(v, float) and math.isnan(v)) else int(v) for v in series]
 
 
-def main() -> None:  # pragma: no cover - slow/real-run path
-    """Read parquet, compute filtered/unfiltered metrics, write metrics.json + hero.png."""
-    import json
+def render_hero_figure(metrics: dict, out_path: Path) -> None:
+    """Render the four-panel hero figure (delta, accuracy, leak, parse) from aggregates.
 
+    One metric per panel keeps the constructs visually separate: the recoverability
+    delta is not answer accuracy, and neither is the explanation answer-leak rate.
+    Confidence bars are drawn only for the delta (the only paired-bootstrap interval
+    computed in the run); the other panels are point estimates and are labelled as
+    such. Pipeline colors are entity-fixed from the portfolio palette, never cycled.
+
+    Args:
+        metrics: ``{"pipelines": {p: {"accuracy": float, "parse_rate_answer": float,
+            "expl_leak_rate": float, "consistency": {"delta": float,
+            "delta_ci": [lo, hi]}}}}`` for the unfiltered subset.
+        out_path: Destination PNG path.
+
+    Raises:
+        ValueError: If any of the required pipeline keys (A, B, B7) is missing.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
+    from awake.viz.style import PALETTE, apply_style
+
+    apply_style()
+    labels = ("A", "B", "B7")
+    pipes = metrics.get("pipelines", {})
+    if set(labels) - set(pipes):
+        raise ValueError(f"metrics['pipelines'] must contain keys {labels}")
+    colors = {p: PALETTE[i] for i, p in enumerate(labels)}  # entity-fixed, never cycled
+
+    panels = (
+        ("recoverability delta (95% CI)", [pipes[p]["consistency"]["delta"] for p in labels]),
+        ("answer accuracy", [pipes[p]["accuracy"] for p in labels]),
+        ("explanation answer-leak rate", [pipes[p]["expl_leak_rate"] for p in labels]),
+        ("answer parse rate", [pipes[p]["parse_rate_answer"] for p in labels]),
+    )
+    fig, axes = plt.subplots(1, 4, figsize=(14.5, 3.6))
+    for ax, (title, values) in zip(axes, panels, strict=True):
+        if title.startswith("recoverability"):
+            yerr = [
+                [
+                    pipes[p]["consistency"]["delta"] - pipes[p]["consistency"]["delta_ci"][0]
+                    for p in labels
+                ],
+                [
+                    pipes[p]["consistency"]["delta_ci"][1] - pipes[p]["consistency"]["delta"]
+                    for p in labels
+                ],
+            ]
+            ax.bar(
+                labels,
+                values,
+                width=0.55,
+                yerr=yerr,
+                capsize=4,
+                error_kw={"ecolor": "#444444"},
+                color=[colors[p] for p in labels],
+            )
+            ax.axhline(0, color="k", lw=0.8)
+            label_ys = [pipes[p]["consistency"]["delta_ci"][1] + 0.05 for p in labels]
+            ax.set_ylim(0, max(label_ys) * 1.06)
+        else:
+            ax.bar(labels, values, width=0.55, color=[colors[p] for p in labels])
+            ax.set_ylim(0, 1)
+            label_ys = [v + 0.03 for v in values]
+        ax.set_title(title)
+        ax.tick_params(axis="y", labelsize=8)
+        for x, v, y in zip(range(3), values, label_ys, strict=True):
+            ax.text(x, y, f"{v:.3f}", ha="center", va="bottom", fontsize=8)
+
+    fig.suptitle("A-OKVQA validation (n=1145): four separate constructs per pipeline", fontsize=11)
+    fig.text(
+        0.005,
+        0.01,
+        "Point estimates; 95% CI drawn only for the paired-bootstrap delta. "
+        "A = BLIP-2 caption → Qwen2.5-7B · B = Qwen2.5-VL-3B · B7 = Qwen2.5-VL-7B.",
+        fontsize=8,
+        va="bottom",
+    )
+    fig.subplots_adjust(bottom=0.19, wspace=0.28)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def main_from_snapshot() -> None:  # pragma: no cover - render-only path
+    """Render the hero figure from the committed aggregate snapshot (no model rerun)."""
+    import json
+
+    from _paths import ASSETS
+
+    snapshot = json.loads((ASSETS / "metrics_snapshot.json").read_text())
+    render_hero_figure(snapshot["unfiltered"], ASSETS / "hero.png")
+    print("wrote hero.png from metrics_snapshot.json")
+
+
+def main() -> None:  # pragma: no cover - slow/real-run path
+    """Read parquet, compute filtered/unfiltered metrics, write metrics.json + hero.png."""
+    import json
+
     import pandas as pd
     from _models import model_revisions
     from _paths import ASSETS, GEN, OUTPUTS, PREPARED, ensure_dirs, load_config
@@ -160,31 +255,28 @@ def main() -> None:  # pragma: no cover - slow/real-run path
     }
     (OUTPUTS / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
-    # Hero figure: 3 panels (delta, accuracy, parse_rate) over unfiltered pipelines.
+    # Hero figure: 4 panels (delta, accuracy, leak rate, parse rate), one construct per
+    # panel, rendered from the same unfiltered aggregates written to metrics.json.
     u = metrics["subsets"]["unfiltered"]["pipelines"]
-    labels = list(PIPELINES)
-    deltas = [u[p]["consistency"]["delta"] for p in labels]
-    # Asymmetric error bars from the paired-bootstrap CI [lo, hi] on each delta.
-    delta_err = [
-        [u[p]["consistency"]["delta"] - u[p]["consistency"]["delta_ci"][0] for p in labels],
-        [u[p]["consistency"]["delta_ci"][1] - u[p]["consistency"]["delta"] for p in labels],
-    ]
-    accs = [u[p]["accuracy"] for p in labels]
-    parses = [u[p]["parse_rate"]["answer"] for p in labels]
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
-    axes[0].bar(labels, deltas, yerr=delta_err, capsize=4)
-    axes[0].axhline(0, color="k", lw=0.8)
-    axes[0].set_title("self-rationale recoverability gain (Delta, 95% CI)")
-    axes[1].bar(labels, accs)
-    axes[1].set_title("accuracy")
-    axes[1].set_ylim(0, 1)
-    axes[2].bar(labels, parses)
-    axes[2].set_title("parse rate")
-    axes[2].set_ylim(0, 1)
-    fig.tight_layout()
-    fig.savefig(ASSETS / "hero.png", dpi=150)
+    render_hero_figure(
+        {
+            "pipelines": {
+                p: {
+                    "accuracy": u[p]["accuracy"],
+                    "parse_rate_answer": u[p]["parse_rate"]["answer"],
+                    "expl_leak_rate": u[p]["expl_leak_rate"],
+                    "consistency": u[p]["consistency"],
+                }
+                for p in PIPELINES
+            }
+        },
+        ASSETS / "hero.png",
+    )
     print("wrote metrics.json + hero.png")
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    if "--from-snapshot" in sys.argv:
+        main_from_snapshot()
+    else:
+        main()
