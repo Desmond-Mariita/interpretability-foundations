@@ -18,7 +18,6 @@ from awake.eval.causal import (
     patch_changes_only_projection,
     residual_space_score,
     standardized_to_residual_direction,
-    tied_logits,
     unit_direction,
 )
 
@@ -204,21 +203,6 @@ def test_random_perturbation_matches_primary_norm():
 # ---------------------------------------------------------------------------
 # 8/9. sign conventions
 # ---------------------------------------------------------------------------
-
-
-def test_tied_logits_equals_h_at_wemb():
-    """The tied head computes ``h @ w_emb.T`` (the true GPT-NeoX logit readout)."""
-    rng = np.random.default_rng(0)
-    w_emb = rng.standard_normal((50, D))
-    h = rng.standard_normal(D)
-    out = tied_logits(h, w_emb)
-    assert out.shape == (50,)
-    assert np.allclose(out, w_emb @ h, atol=1e-12)
-
-
-def test_tied_logits_shape_mismatch_raises():
-    with pytest.raises(ValueError):
-        tied_logits(np.ones(D), np.ones((10, D + 1)))
 
 
 def test_agreement_margin_sign_convention():

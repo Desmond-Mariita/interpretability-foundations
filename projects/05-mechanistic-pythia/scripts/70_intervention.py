@@ -48,7 +48,9 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
     splits = sys.argv[1:] or ["pilot", "dev", "test"]
     ensure_dirs(INT_DIR)
 
-    model, tok = load_pythia(cfg["model_id"], cfg["model_revision"], device="cuda")
+    model, tok = load_pythia(
+        cfg["model_id"], cfg["model_revision"], device="cuda", dtype=torch.float32
+    )
     d_model = probe_cfg.get("d_model", 768)
 
     vval = json.loads((STIM_DIR / "tokenizer_validation.json").read_text())
@@ -87,20 +89,12 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
         ) -> np.ndarray:
             """One forward; if ``new_row`` given, replace the subject row at ``point``.
 
-            Verb logits are computed with the TIED embedding head
-            (``final_layer_norm output @ embed_in.weight.T``): the pinned pythia-160m
-            config declares ``tie_word_embeddings: false``, which makes transformers 5.9
-            build an untied random ``embed_out``; ``model.out.logits`` is not used.
+            Verb logits come from the model's trained (untied) ``embed_out`` head on an
+            fp32 forward (the pinned checkpoint carries a trained output head --
+            ``tie_word_embeddings: false`` is truthful; ADR 006 records the finding that
+            a tied readout produces nonsense continuations).
             """
             enc = tok(prompt_text, return_tensors="pt", add_special_tokens=False)
-            captured_lnf: dict[str, torch.Tensor] = {}
-
-            def capture_lnf(_m, _i, module_out):
-                captured_lnf["t"] = (
-                    module_out[0] if isinstance(module_out, tuple) else module_out
-                ).detach()
-
-            lnf_handle = model.gpt_neox.final_layer_norm.register_forward_hook(capture_lnf)
             handle = None
             if point is not None:
 
@@ -115,18 +109,11 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
                 handle = _hook_module(model, point).register_forward_hook(hook)
             try:
                 with torch.no_grad():
-                    model(**{k: v.to("cuda") for k, v in enc.items()})
+                    out = model(**{k: v.to("cuda") for k, v in enc.items()})
             finally:
                 if handle is not None:
                     handle.remove()
-                lnf_handle.remove()
-            lg = (
-                (captured_lnf["t"][0, final_pos] @ model.gpt_neox.embed_in.weight.T)[vid_list]
-                .detach()
-                .to("cpu")
-                .numpy()
-            )
-            return lg
+            return out.logits[0, final_pos, vid_list].detach().to("cpu").numpy()
 
         rows = []
         noop_max = 0.0

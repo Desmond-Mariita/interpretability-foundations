@@ -173,24 +173,32 @@ model, search prompts/templates, loosen the gate, or cherry-pick verbs. The boun
 is reported as: *Pythia-160M did not demonstrate the prerequisite agreement behaviour under
 the pre-registered stimulus design, so a causal number intervention is not interpretable.*
 
-### Pilot finding -- tied-embedding logit readout (recorded during plumbing validation)
+### Pilot finding -- logit readout (recorded during plumbing validation)
 
-The pinned pythia-160m config declares `tie_word_embeddings: false` (written for
-transformers 4.24), and the checkpoint contains no output-head weights. transformers 5.9.0
-therefore builds an **untied, randomly initialized** `embed_out` head; `model.out.logits`
-is a random projection and does not reflect the model's true next-token distribution.
-The true GPT-NeoX architecture computes logits with the **tied** embedding matrix, and the
-original EleutherAI checkpoints contain no separate head -- so the behavioural readout for
-this study is:
+The pinned pythia-160m checkpoint declares `tie_word_embeddings: false` and its
+`safetensors` **contain a trained, untied `embed_out` output head** -- GPT-NeoX/Pythia was
+trained with a separate output head, so the config flag is truthful and transformers 5.9
+loads the head correctly. `model.out.logits` is therefore the correct behavioural readout.
 
-```text
-logits = final_layer_norm(h)[prediction_position] @ embed_in.weight^T
-```
+A transient pilot misdiagnosis assumed the architecture was tied; the tied readout
+(`ln_f(h) @ embed_in.T`) was empirically shown to produce nonsense continuations
+(e.g. `"The dog" -> "fraudulent"`), while the untied head produces grammatical
+continuations, and a perplexity check on four grammatical/ungrammatical agreement pairs
+favours the grammatical reading by +0.78 to +1.45 nats/token. The tied readout was
+discarded.
 
-`model.out.logits` is **not used** anywhere in the v1.1 pipeline; `awake.eval.causal.tied_logits`
-implements the readout and is locked by a unit test. All logit caches generated before this
-fix (pilot only) were invalidated and re-generated. This is a plumbing fix discovered before
-any dev/test evaluation, not a design change; the freeze is re-versioned accordingly.
+Two readout decisions follow from the pilot:
+
+1. **The behavioural readout is `model.out.logits`** (the checkpoint's trained untied
+   head) at the final stem position -- no manual head is used.
+2. **The behavioural passes run in fp32** (`dtype=torch.float32` in `load_pythia`): at the
+   checkpoint's native fp16 the logit scale (~835) quantizes to ~1 ulp (~0.5), which sits
+   at the magnitude of the intervention effects being measured. The v1.0 probing pipeline
+   (fp16 extraction, upcast to fp64 before probing) is unchanged and its reproduction was
+   already verified.
+
+Both findings are plumbing corrections made during pilot validation, before any dev/test
+evaluation; the freeze is re-versioned accordingly.
 
 ## Decision 5 -- Probe-direction recovery, intervention, and controls
 

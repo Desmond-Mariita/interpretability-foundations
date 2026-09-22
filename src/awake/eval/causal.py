@@ -210,30 +210,6 @@ def orthogonal_unit_vector(seed: int, d: int, u: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def tied_logits(h: np.ndarray, w_emb: np.ndarray) -> np.ndarray:
-    """Next-token logits under the GPT-NeoX tied-embedding head: ``h @ w_emb.T``.
-
-    The pinned pythia-160m config declares ``tie_word_embeddings: false``, which makes
-    transformers 5.9 build an untied ``embed_out`` Linear that the checkpoint does not
-    provide (it contains no output-head weights), leaving a randomly initialized head.
-    The true GPT-NeoX architecture computes logits with the tied embedding matrix, so the
-    behavioural readout must use ``final_layer_norm(h) @ embed_in.weight.T`` (recorded in
-    ADR 006 / the v1.1 report); ``model.out.logits`` is not used for this model.
-
-    Args:
-        h: Post-final-layernorm hidden state at the prediction position, shape ``(d,)``.
-        w_emb: Embedding matrix, shape ``(vocab, d)``.
-
-    Returns:
-        Logits over the vocabulary, shape ``(vocab,)``.
-    """
-    h = np.asarray(h, dtype=np.float64)
-    w_emb = np.asarray(w_emb, dtype=np.float64)
-    if h.shape != w_emb.shape[1:]:
-        raise ValueError("h must match the embedding row dimension")
-    return w_emb @ h
-
-
 def agreement_margin(m: float, y: int) -> float:
     """Grammatical agreement margin ``A = y * M``.
 

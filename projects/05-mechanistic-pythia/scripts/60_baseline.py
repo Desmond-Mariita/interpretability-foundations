@@ -30,7 +30,9 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
     splits = sys.argv[1:] or ["pilot", "dev", "test"]
     ensure_dirs(BASE_DIR)
 
-    model, tok = load_pythia(cfg["model_id"], cfg["model_revision"], device="cuda")
+    model, tok = load_pythia(
+        cfg["model_id"], cfg["model_revision"], device="cuda", dtype=torch.float32
+    )
 
     # validated verb pairs + token ids (leading-space convention)
     vval = json.loads((STIM_DIR / "tokenizer_validation.json").read_text())
@@ -70,7 +72,7 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
             handles.append(base.final_layer_norm.register_forward_hook(mk("ln_f")))
             try:
                 with torch.no_grad():
-                    model(**{k: v.to("cuda") for k, v in enc.items()})
+                    out = model(**{k: v.to("cuda") for k, v in enc.items()})
             finally:
                 for h in handles:
                     h.remove()
@@ -81,15 +83,9 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
                 resid[name] = t[0, pos].to(torch.float32).cpu().numpy().astype(np.float32)
             np.savez(out_dir / f"{r.stim_id}.npz", **resid)
 
-            # tied-embedding verb logits (the true GPT-NeoX head; NOT model.out.logits,
-            # which is a random untied head under transformers 5.9 + this pinned config)
+            # verb logits from the model's trained (untied) embed_out head, fp32 forward
             vids = [verb_ids[f] for f in kept_forms]
-            lg = (
-                (captured["ln_f"][0, r.final_token_pos] @ model.gpt_neox.embed_in.weight.T)[vids]
-                .detach()
-                .to("cpu")
-                .numpy()
-            )
+            lg = out.logits[0, r.final_token_pos, vids].detach().to("cpu").numpy()
             row = {"stim_id": r.stim_id}
             for f, v in zip(kept_forms, lg, strict=True):
                 row[f"logit_{f}"] = float(v)
