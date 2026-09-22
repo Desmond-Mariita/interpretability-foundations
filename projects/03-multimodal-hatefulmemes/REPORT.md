@@ -3,6 +3,8 @@
 **Author:** Desmond Mariita.
 **Dataset:** Meta Hateful Memes phase-1 (Meta HM Dataset Agreement; gated, code-only).
 **Status:** complete — end-to-end run on CLIP-ViT-L/14 (see §5; metrics in `metrics.json`).
+Statistical-repair note: see [REPAIR_REPORT.md](REPAIR_REPORT.md) (2026-09-22) for the
+corrections to the paired-comparison estimand and the Shapley share semantics.
 
 ---
 
@@ -27,16 +29,18 @@ balanced 250/250).
 paired with meme captions; binary hateful/benign labels. Verified on disk from a Kaggle
 mirror of the phase-1 release (`LICENSE.txt` dated 2020-06-14).
 
-**Splits and counts.**
+**Splits and counts.** (Actual parsed record counts, verified in the 2026-09-22 rerun;
+see `outputs/manifest.json`.)
 
 | Split | N | Labels |
 |---|---|---|
-| train | 8,499 | 5,450 benign / 3,050 hateful (~64% / ~36%) |
+| train | 8,500 | 5,450 benign / 3,050 hateful (~64% / ~36%) |
 | dev | 500 | 250 benign / 250 hateful (balanced) |
-| test | 999 | unlabelled |
+| test | 1,000 | unlabelled |
 
-The `dev.jsonl` file's last line has no trailing newline, so `wc -l` reports 499; the
-actual record count is 500. Each record: `{id, img, label, text}`.
+The split files' last lines have no trailing newline, so `wc -l` under-reports by one
+per file (the pre-rerun REPORT table therefore showed 8,499 and 999; the corrected
+parsed counts are 8,500 and 1,000). Each record: `{id, img, label, text}`.
 
 **Licence.** The Meta HM Dataset Agreement (Facebook HM Dataset Agreement) governs
 everything and applies regardless of the Kaggle origin.
@@ -83,18 +87,22 @@ to the L/14 headline reported here.
 | Image-only | `img_emb` | 1024 |
 | Text-only | `txt_emb` | 1024 |
 
-All hyperparameters are fixed via **train-only 5-fold cross-validation**. Dev is never
-used for selection; it is the final evaluation split only. Class imbalance is handled via
-`scale_pos_weight` set from the train label ratio (~1.79). Models are saved to
-`outputs/models/clip_l14/`.
+Hyperparameters are **fixed in `configs/train.yaml`** (400 trees, lr 0.05, 31 leaves) and
+identical across the three heads; no hyperparameter search or cross-validation was run.
+Dev is never used for selection; it is the final evaluation split only. Class imbalance
+is handled via `scale_pos_weight` set from the train label ratio (~1.79). Models are
+saved to `outputs/models/clip_l14/`.
 
 **Background.** `scripts/15_background.py` samples a seeded empirical background of N = 200
 unstratified train rows → `outputs/models/clip_l14/background.npz`. The background seed
-and N are set in `configs/train.yaml`.
+and N are set in `configs/train.yaml`. Mean-embedding and balanced-background sensitivity
+analyses are specified in ADR 003 but **have not been executed** (future work; they would
+require a re-run of the pipeline).
 
 ## 4. Metric definitions
 
-All metric code lives in `src/awake/eval/` (pure, unit-tested).
+Shared pure metric code lives in `src/awake/eval/`; the project-specific corrected
+estimands live in `scripts/_stats.py` (P3-local, unit-tested).
 
 ### 4.1 Classifier metrics (per head, on dev)
 
@@ -105,10 +113,24 @@ All metric code lives in `src/awake/eval/` (pure, unit-tested).
   balanced, so the chance baseline is 0.5.
 - All three metrics reported with **bootstrap 95% confidence intervals** (2,000 resamples,
   percentile method, fixed seed).
-- **Paired bootstrap 95% CIs on fused − unimodal AUROC differences** are reported in
-  `metrics.json`. At n = 500 the AUROC-difference half-width is approximately ±0.03–0.05;
-  CIs are reported regardless of whether they straddle zero — no post-hoc significance
-  threshold is applied.
+- **Paired AUROC differences (fused − unimodal)** are the intended comparison. The
+  corrected estimand (`scripts/_stats.py::paired_auroc_bootstrap`) resamples **example
+  indices as paired units**, recomputes the fused AUROC and the unimodal AUROC **inside
+  each resample**, and records their difference; the 95% CI is the percentile interval
+  of that paired-difference distribution. A resample whose label vector contains a
+  single class is degenerate (AUROC undefined) and is counted in `n_valid`-terms and
+  skipped — never silently coerced. Significance is read from the paired CI, not from
+  overlap of the marginal CIs (overlapping marginal CIs are not a test).
+- **Executed provenance.** The paired CIs reported in §5.1 come from the 2026-09-22
+  reproduction rerun (run id `20260922-025212Z`; dataset: Kaggle mirror
+  `marafey/hateful-memes-dataset`, identity-verified against the documented release;
+  CLIP `openai/clip-vit-large-patch14` @ HF revision `32bd642`; git `ec271c0`; RTX 3090;
+  environment and artifact hashes in `outputs/manifest.json`). The rerun re-derived the
+  original run's per-head aggregates bit-identically (identical AUROC/AUPRC/accuracy
+  to the last digit), so the original headline numbers were correct as committed. The
+  previous `auroc_diffs` entries were paired mean differences over per-example
+  *probability* arrays (mislabeled as AUROC differences); they are documented in
+  `REPAIR_REPORT.md` and used in no claim.
 
 ### 4.2 2-player interventional modality Shapley
 
@@ -141,34 +163,46 @@ phi_text  = 0.5 * [(v({txt}) - v(empty)) + (v({img,txt}) - v({img}))]
 
 Efficiency: `phi_image + phi_text = v({img,txt}) - v(empty)`.
 
-**Background.** Primary: empirical train background (N = 200, seeded). Ablations:
-mean-embedding baseline (single point) and balanced (class-stratified) background. The
-primary reflects the observed train prior (~64% benign); the ablations quantify the
-sensitivity of absolute φ magnitudes to this choice.
+**Background.** Primary: empirical train background (N = 200, seeded). The primary
+reflects the observed train prior (~64% benign), so `v(∅)` and absolute φ magnitudes are
+prior-dependent. Per-example shares normalise magnitudes. Mean-embedding and balanced
+(class-stratified) background sensitivity analyses are specified in ADR 003 but have
+**not been run** — no ablation numbers exist and none are claimed.
 
 **Off-manifold caveat.** Factorised (image, text) pairs produced by background replacement
 are out-of-distribution for the fused LightGBM head: a real image embedding is paired
 with a text embedding from a different example. Tree models route these inputs to whatever
-leaf they reach — inherent to marginal Shapley on trees. The mean-baseline ablation
-quantifies the practical effect.
+leaf they reach — inherent to marginal Shapley on trees.
 
 **Estimand.** This is **interventional reliance** — a measure of how much the model
-relies on each modality when the other is marginalised out. It is not a causal claim.
+relies on each modality when the other is marginalised out. It is not a causal claim,
+not a claim of semantic complementarity, and not a claim about what the model "really
+understands".
 
-**Summary statistic and hero figure.** The **signed image share**:
+**Per-example quantities (sign and magnitude reported separately).**
 
-```
-s = phi_image / (|phi_image| + |phi_text| + eps),   eps = 1e-9
-```
+- **Signed contribution** `phi_image`, `phi_text` — direction of each modality's push on
+  the raw margin. The sign is a *direction*, not a dominance measure: `phi_image = −10`,
+  `phi_text = +1` means the image dominates in **magnitude** while its signed share is
+  negative.
+- **Signed image share** `s = φ_image / (|φ_image| + |φ_text| + ε)`, ε = 1e-9, in [−1, 1].
+  Summarises *direction* across examples. Defined as 0 when the total magnitude is
+  negligible (direction undefined).
+- **Image magnitude share** `m = |φ_image| / (|φ_image| + |φ_text|)`, in [0, 1], with
+  `m = 0.5` when both contributions are ~0 (no modality dominates). This is the
+  dominance-appropriate quantity: `m > 0.5` means the image carries the larger absolute
+  contribution on that example.
+- **Interaction** `I = v({img,txt}) − v({img}) − v({txt}) + v(∅)` — the non-additivity
+  of the margin under the chosen interventional game, and nothing more. It is not
+  "semantic synergy" and not causal interaction.
 
-lies in [−1, 1]: positive means image-dominant, negative means text-dominant. Examples
-where `|phi_image| + |phi_text| < eps` (negligible total attribution) are excluded from
-the share plot and counted in a footnote; their raw φ values are retained in `metrics.json`.
-
-All per-example (phi_image, phi_text, total = v_ab − v_empty) values are written to
-`metrics.json`. Full-set aggregate over all 500 dev examples is the headline;
-correctness-stratified and gold-label-stratified breakdowns are reported separately and
-clearly labelled.
+The hero figure (`assets/modality_attribution.png`) shows both histograms (signed
+share; magnitude share); `assets/metrics_summary.png` summarises the per-head AUROC CIs,
+paired deltas, magnitude share and interaction. Per-example rows (phi, shares,
+interaction) are written by `just attribute` to
+`outputs/attribution/<variant>/dev_attribution.json` (a local run artifact, retained
+from the rerun with a hash in `outputs/manifest.json`); aggregates enter the committed
+`metrics.json`.
 
 ## 5. Results
 
@@ -183,50 +217,84 @@ Run on the balanced 500-example dev split (frozen CLIP-ViT-L/14, all numbers fro
 | Image-only | 0.692 [0.648, 0.736] | 0.691 | 0.622 |
 | Text-only | 0.575 [0.524, 0.626] | 0.566 | 0.548 |
 
-Text-only is barely above chance; image-only carries most of the signal; the fused head's
-edge over image-only (0.711 vs 0.692) sits well within the overlapping 95% CIs, so fusion
-is not clearly better than the image alone on this frozen-feature setup. (`metrics.json`
-also records a `paired_diff_test` over the probability arrays as a stand-in; the honest
-comparison is the overlapping AUROC CIs, not that test's p-value.)
+Text-only is barely above chance; image-only carries most of the signal. The paired
+AUROC differences (paired bootstrap over shared example indices, 2 000 resamples, all
+valid, seed 0) are:
+
+| Comparison | Point diff | Paired 95% CI |
+|---|---|---|
+| fused − image | **+0.019** | **[−0.013, +0.054]** |
+| fused − text | **+0.136** | **[+0.095, +0.177]** |
+
+The fused−image CI includes 0: **fusion's edge over the image-only head is not
+established at n = 500**. The fused−text CI excludes 0: the fused head clearly beats
+the text-only head. (The marginal CIs overlap for fused vs image-only; marginal CI
+overlap is not a significance test and is not used as one.)
 
 ### 5.2 Modality attribution (dev aggregate)
 
 Mean |φ| (raw-margin interventional Shapley, empirical train background, N=200):
-**image 0.842 vs text 0.675** — the fused decision leans on the image modality, consistent
-with the unimodal AUROCs. The signed image-share distribution
-(`assets/modality_attribution.png`) is centred near zero (share_mean −0.034) but with the
-image carrying the larger magnitude on most examples.
+**image 0.842 vs text 0.675** — on average the image modality carries the larger
+*absolute* margin contribution, consistent with the unimodal AUROCs. The mean signed
+contributions are **φ_image −0.114 / φ_text −0.197** (`mean_signed_phi`). The mean
+per-example magnitude share is **0.549** (`magnitude_share_mean`; 0.5 would be
+balanced), and the aggregate magnitude share of the mean absolutes is
+**image 0.555 / text 0.445** (`magnitude_share_of_mean_abs`). The mean signed image
+share is **−0.034** (`signed_share_mean`): across examples the image's signed
+contribution is not systematically positive — sign (direction) and magnitude are
+separate summaries, and the near-zero mean signed share is not evidence of "balanced
+reliance". The hero figure (`assets/modality_attribution.png`) shows both histograms
+(signed share; magnitude share).
 
 ![modality attribution](assets/modality_attribution.png)
 
+### 5.3 Interaction (computed)
+
+The non-additivity contrast `I = v({img,txt}) − v({img}) − v({txt}) + v(∅)`, computed
+per example from the four coalition values (n = 500):
+
+| Quantity | Value |
+|---|---|
+| mean I | **−0.093** |
+| mean \|I\| | 0.358 |
+| bootstrap 95% CI over examples | **[−0.134, −0.053]** (2 000 resamples, seed 0) |
+
+The CI excludes 0: under the specified interventional game the margin is on average
+mildly **sub-additive** — the combined modality pair scores slightly *below* the sum of
+the single-modality contributions relative to the background. Read narrowly, this is
+non-additivity of the margin under the intervention game (consistent with redundancy
+between the modalities in this frozen-feature setup); it is not semantic synergy and
+not causal interaction in the world. See `assets/metrics_summary.png` panel D.
+
 ## 6. Discussion
 
-On this frozen CLIP-L/14 + LightGBM setup, **the image modality carries the discriminative
-load**: image-only AUROC (0.692) is close to fused (0.711) while text-only (0.575) is barely
-above chance, and the modality Shapley assigns larger magnitude to the image (mean|φ| 0.84
-vs 0.68). This matches the well-documented difficulty of Hateful Memes for unimodal text and
-the modest gains of simple late fusion over a strong image encoder. The near-zero signed
-share_mean (−0.034) with image-dominant magnitudes means the two modalities frequently push
-in opposite directions on a given example while the image more often dominates — a pattern
-the per-example raw φ in `metrics.json` makes inspectable. Two honest caveats bound the
-reading: fusion's edge over image-only is within overlapping CIs (not a clear win on frozen
-features), and the interventional baseline forms off-manifold image+text pairs that a tree
-model scores at arbitrary leaves (§7). The framing below interprets the share axis.
+On this frozen CLIP-L/14 + LightGBM setup, **the image modality carries the larger
+average absolute margin contribution**: image-only AUROC (0.692) is close to fused
+(0.711) while text-only (0.575) is barely above chance, and mean|φ| is 0.84 (image) vs
+0.68 (text) with an aggregate magnitude share of ~0.56. This matches the well-documented
+difficulty of Hateful Memes for unimodal text and the modest gains of simple late fusion
+over a strong image encoder.
 
-The signed image share `s` indicates whether the fused model is predominantly
-image-driven or text-driven across the dev set. Conditional breakdowns — by gold label
-(hateful vs. benign) and by prediction correctness — reveal whether the model's
-modality reliance is consistent across outcomes or whether, for example, missed hateful
-examples are predominantly those where the text signal is weak or absent.
+The near-zero mean signed share (−0.034) means the image's *signed* contribution is not
+systematically positive across examples while its *magnitude* dominates on average — a
+pattern the per-example φ values make inspectable after re-run. What the Shapley numbers
+do **not** establish, and what this report does not claim:
 
-A text-dominant model (mean `s` near −1) suggests the CLIP text encoder is carrying most
-of the discriminative load; an image-dominant model (mean `s` near +1) suggests the visual
-content drives decisions. A balanced mix (`s` near 0 on average) suggests the fused head
-exploits complementary signals, which would motivate further image-region attribution work.
+- they do not show semantic complementarity between modalities;
+- they do not show modality independence or dependence;
+- they do not establish causal necessity of either modality;
+- a mean magnitude share near 0.5 would not, by itself, demonstrate "balanced reliance"
+  on both modalities.
 
-The fused-vs-unimodal AUROC gaps (with bootstrap CIs from `metrics.json`) quantify how
-much the fusion actually helps; if the gaps straddle zero, the evidence for complementarity
-is inconclusive at n = 500.
+The fused-vs-unimodal AUROC deltas (paired CIs above) quantify whether fusion helps
+predictively. The fused−text delta (+0.136, CI [0.095, 0.177]) shows a clear predictive
+gain over the text head; the fused−image delta (+0.019, CI [−0.013, 0.054]) does not
+establish a gain over the image head at n = 500. Even a consistently positive paired
+difference would be evidence about *predictive* gain, not about semantic
+complementarity. The interaction contrast I (mean −0.093, CI [−0.134, −0.053]) is
+interpreted strictly as non-additivity of the margin under the specified interventional
+game — mildly sub-additive here, i.e. consistent with redundant rather than synergistic
+combination of the two modality features in this frozen-feature setup.
 
 ## 7. Limitations
 
@@ -242,11 +310,16 @@ is inconclusive at n = 500.
   the background differ from the headline; the Space attributions are illustrative only.
 - **Interventional / factorised backgrounds are off-manifold for the tree model.** Marginal
   Shapley replaces absent features with background draws, creating (image, text) pairs that
-  no real meme would produce. Tree models score these at arbitrary leaves. The mean-baseline
-  ablation in `metrics.json` quantifies the practical effect.
+  no real meme would produce. Tree models score these at arbitrary leaves.
 - **Prior-dependent magnitudes.** The empirical background carries the train prior (~64%
-  benign); `v(empty)` and absolute φ magnitudes reflect this prior. The signed image share `s`
-  is the robust summary; the balanced-background ablation quantifies the shift.
+  benign); `v(empty)` and absolute φ magnitudes reflect this prior. The per-example
+  shares (s, m) normalise magnitudes; mean-baseline and balanced-background sensitivity
+  analyses are specified in ADR 003 but **have not been executed**.
+- **Artifact retention.** The 2026-09-22 rerun retains all run artifacts locally under
+  `outputs/` (embeddings, boosters, background, per-example attribution rows) with
+  sha256 hashes and full provenance in `outputs/manifest.json` (run id
+  `20260922-025212Z`). The dataset is gated and never committed; reproduction requires
+  re-acquiring it under the Meta HM Agreement.
 - **Probability calibration not guaranteed for unimodal heads.** Displayed probabilities
   for the image-only and text-only heads are indicative. Margin/Shapley results are
   unaffected.

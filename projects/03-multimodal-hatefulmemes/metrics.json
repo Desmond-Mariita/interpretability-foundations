@@ -56,28 +56,56 @@
   },
   "auroc_diffs": {
     "fused_vs_image": {
-      "mean_diff": -0.03040810200649678,
-      "ci_low": -0.04486211070367097,
-      "ci_high": -0.015741547535559508,
-      "p_value": 0.0
+      "point_diff": 0.01880000000000004,
+      "ci_low": -0.0132822165816849,
+      "ci_high": 0.05367234333993927,
+      "n_resamples": 2000,
+      "n_valid": 2000,
+      "seed": 0
     },
     "fused_vs_text": {
-      "mean_diff": 0.04111333327124596,
-      "ci_low": 0.022534803124110592,
-      "ci_high": 0.05862477012854774,
-      "p_value": 0.0
+      "point_diff": 0.13564799999999988,
+      "ci_low": 0.09477082063084914,
+      "ci_high": 0.1771889384326908,
+      "n_resamples": 2000,
+      "n_valid": 2000,
+      "seed": 0
     }
   },
   "attribution": {
+    "n": 500,
     "mean_abs_phi": {
       "image": 0.8419460371862458,
       "text": 0.6750419704241264
     },
-    "share_mean": -0.034063245777018566,
-    "n": 500
+    "mean_signed_phi": {
+      "image": -0.11445833294733612,
+      "text": -0.1965014102001652
+    },
+    "signed_share_mean": -0.034063245777018566,
+    "magnitude_share_mean": 0.5489875830296171,
+    "magnitude_share_of_mean_abs": {
+      "image": 0.5550116632184305,
+      "text": 0.44498833678156946
+    },
+    "interaction": {
+      "mean": -0.09302322001840921,
+      "mean_abs": 0.3577607263590692,
+      "ci_low": -0.13436478572305757,
+      "ci_high": -0.0526914011550971,
+      "n_boot": 2000,
+      "seed": 0
+    },
+    "per_example": "outputs/attribution/l14/dev_attribution.json"
   },
   "background": {
     "type": "empirical_train",
-    "n": 200
+    "n": 200,
+    "seed": 1337
+  },
+  "provenance": {
+    "manifest": "outputs/manifest.json",
+    "run_id": "20260922-025212Z",
+    "git_sha": "ec271c0233d3b3ec868e7b31075a34541276be99"
   }
 }
