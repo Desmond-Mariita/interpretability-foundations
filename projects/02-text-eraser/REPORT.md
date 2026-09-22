@@ -76,7 +76,8 @@ p = 0.0005) and LIME (+0.094, p = 0.0015); LIME significantly outperforms random
 (+0.075, p = 0.002). Gradient × input vs LIME (p = 0.030) and gradient × input vs
 random (p = 0.096) are not significant at the corrected level.
 
-Ordering: IG leads on perturbation sensitivity and plausibility, and its lead is now
+Ordering: Integrated Gradients produced the largest measured perturbation-faithfulness
+effect among the evaluated methods under the corrected v2 protocol, and its lead is
 statistically supported — though corrected magnitudes are far below the withdrawn
 historical values and cannot be compared with them. All methods retain high sufficiency
 (0.43–0.46): keeping only the rationale preserves most original-class probability.

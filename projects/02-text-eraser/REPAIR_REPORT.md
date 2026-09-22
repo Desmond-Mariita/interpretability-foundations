@@ -97,9 +97,29 @@ of all explainer outputs under the repository's provenance contract.
 
 The superseded n_steps=50 full-run artifacts and diagnostics are archived at
 `outputs/attributions/v2-nsteps50-superseded/`; the run's identity, hash and cache checks
-all passed, so only the IG numerical-convergence gate failed. LIME surrogate fits were
-finite with weighted R² in [0.228, 0.915] across the split. The real-data pilot audit
-(`pilot_audit.json`) passed before the full run.
+all passed, so only the IG numerical-convergence gate failed. That 50-step run is a
+diagnostic, not a scientific result. LIME surrogate fits were finite with weighted R² in
+[0.228, 0.915] across the split. The real-data pilot audit (`pilot_audit.json`) passed
+before the full run.
+
+### Permanent full-run verifier
+
+`scripts/26_audit_full.py` (sibling of `25_audit_pilot.py`) audits a completed run for
+publication: manifest contract/version identity, checkpoint and tokenizer identity,
+prepared-split binding, run ID and file hashes, example coverage without duplicates,
+cache identity, IG n_steps=800 with the completeness tolerance across the full split,
+numerical finiteness, publication status, and published metrics/figure correspondence.
+Stale v1 artifacts cannot pass. Any publication-critical failure exits non-zero; the
+verdict is recorded in `full_audit.json`.
+
+**Result on the authoritative n_steps=800 run (2026-09-22): passed.** All gates green
+for run_id `5c86f64abd322fbde41577b0f78756ef9bee7b00406c0571aabf5a65e819433f`
+(199 examples): IG completeness residuals within tolerance for 199/199 (worst ratio
+0.356), LIME diagnostics finite, publication status `corrected_full_run`, published
+`metrics.json` and figure bound to this run. Focused verifier tests
+(`tests/test_audit_full.py`) cover the intact pass plus wrong-run-ID, missing-file,
+bad-hash, broken-example-IDs, wrong-step-count, excessive-residual, stale-contract and
+incomplete-method-set failures.
 
 ## Old versus corrected headline metrics
 
@@ -153,11 +173,13 @@ and use its existing Toolbx/project environment. Do not stop other GPU jobs. Onl
 ```bash
 uv run --locked python projects/02-text-eraser/scripts/20_explain.py --device cuda
 uv run --locked python projects/02-text-eraser/scripts/30_eval.py --device cuda --publish
+uv run --locked python projects/02-text-eraser/scripts/26_audit_full.py --run-dir projects/02-text-eraser/outputs/attributions/v2
 ```
 
-These commands reuse the original model; there is deliberately no training command.
-The preparation command in this repair requires the saved tokenizer. Real-data results must
-replace this pending status only after inspection and a successful full run.
+These commands reuse the fresh-v2 checkpoint frozen in commit `6e3652f`; the original
+v1 model remains unavailable. The preparation command in this repair requires the saved
+tokenizer. Real-data results must replace this pending status only after inspection and a
+successful full run audited by `26_audit_full.py`.
 
 ## Branch and commits
 
