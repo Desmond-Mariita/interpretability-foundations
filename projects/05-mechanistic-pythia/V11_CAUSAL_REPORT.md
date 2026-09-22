@@ -56,9 +56,11 @@ something it was not.
 
 The confirmatory design was frozen in `outputs/stimuli/design_freeze.json`:
 **`v1.1-design-freeze-5`**, git SHA `0b256c5889da366f970b2458461f3ea5415ea87d`, manifest
-SHA-256 `d6651d716815...` (full hashes in the manifest), stimulus-table SHA-256
-`6a98507f...`, per-layer direction hashes, config hashes, splits, verb pairs, seeds, and
-the gate definition. Freeze iterations -1 through -4 were pilot-plumbing corrections
+content identifier `d6651d716815...` (a canonical manifest hash computed before insertion
+of the self-hash field -- a reproducible identifier, not a literal digest of the final
+JSON file bytes; full hashes in the manifest), stimulus-table SHA-256 `6a98507f...`,
+per-layer direction hashes, config hashes, splits, verb pairs, seeds, and the gate
+definition. Freeze iterations -1 through -4 were pilot-plumbing corrections
 (section 8 records the substantive one); none touched the pre-registered design. No
 parameter/template change was made after the freeze; the test split ran exactly once.
 
@@ -96,8 +98,10 @@ in the grammatical direction), so the causal number intervention is interpretabl
 - **Noun lexicon.** Derived deterministically from UD English-EWT train: NOUN tokens with
   `Number=Sing/Plur`, letter-only lowercase surfaces, most frequent surface per number,
   minimum frequency 3 per surface, degenerate pairs (plural == singular) excluded.
-  **460 lemmas**: `suffix_transparent` 422 (plural == singular + s/es), `nontransparent`
-  38 (a surface heuristic, not a linguistic morphology claim).
+  **460 eligible lexicon-pool lemmas**: `suffix_transparent` 422 (plural == singular +
+  s/es), `nontransparent` 38 (a surface heuristic, not a linguistic morphology claim).
+  The instantiated study uses **295** of them (pilot 5 + dev 200 + test 90); the
+  confirmatory test split uses **90**.
 - **Subject alignment.** The intervention targets the subject's **last overlapping
   subword** (the v1.0 alignment convention, ADR 005 Decision 2). Subject positions and
   subword counts are recorded per stimulus; all 2,700 stimuli align, subject first-token
@@ -175,7 +179,9 @@ targets).
 ## 9. Primary outcome (H2) -- POSITIVE at every layer
 
 Mean donor-directed shift under the opposite-number direction patch, test split,
-lemma-cluster bootstrap 95% CIs (unit = lemma; 100,800 items per layer):
+lemma-cluster bootstrap 95% CIs (unit = lemma; 7,200 items per causal point =
+1,800 test stimuli x 4 verb pairs; 93,600 primary causal-point items across the 13
+points, 100,800 number-condition rows including the terminal `ln_f` point):
 
 | Layer | mean E | 95% CI | Layer | mean E | 95% CI |
 |---|---|---|---|---|---|
@@ -190,8 +196,7 @@ lemma-cluster bootstrap 95% CIs (unit = lemma; 100,800 items per layer):
 **Every layer's CI excludes zero.** Replacing only the subject's coordinate on the
 decoded number direction with an opposite-number donor's coordinate shifts the verb logit
 contrast toward the donor number at every depth, with the strongest effect at the
-embedding / block_0 (E ≈ 4.8 -- roughly 60% of the full-residual positive control's 6.4)
-and a smooth decay to near zero at the deepest points.
+embedding / block_0 (E ≈ 4.8) and a smooth decay to near zero at the deepest points.
 
 **Causal-architecture diagnostic (as pre-registered).** A subject-position patch after
 the final block has no attention layer left to propagate it to a **later** prediction
@@ -214,36 +219,72 @@ is therefore exact per template.
 | (max |value| across layers) | 0.015 | 0.066 | 6.42 |
 
 - **C1 same-number:** |E| <= 0.015 at every layer -- replacing the coordinate with a
-  same-number donor leaves behaviour unchanged (magnitude/donor-variability control).
-- **C2 random:** |E| <= 0.066 at every layer -- norm-matched perturbations in directions
-  orthogonal to `u_l` do not move the contrast toward the donor number. The effect is
-  **direction-specific** (H3 supported).
+  same-number donor leaves behaviour essentially unchanged (magnitude/donor-variability
+  control).
+- **C2 random:** |E| <= 0.066 at every layer -- norm-matched orthogonal random-direction
+  effects were much smaller than the number-direction effect (maximum |E| ≈ 0.066 versus
+  4.84 at the embedding, about 1.4%), though they were not identically zero (several
+  random-control CIs exclude zero, e.g. embedding 0.033 [0.026, 0.039], block_5 0.066
+  [0.061, 0.072]). The small positive bias is consistent with nonlinear degradation of
+  the subject representation.
+
+**H3 -- formal paired contrasts (pre-registered specificity test).** Per causal point,
+paired `D = E(number) - E(control)` on the exact shared item (stim_id, verb pair, point;
+the three random seeds are averaged within item before subtraction -- seeds are not
+independent observations), lemma-cluster bootstrap on the paired differences, 2,000
+resamples, seed 0, n = 7,200 items per point:
+
+| Layer | number − same-number | | number − random-mean | |
+|---|---|---|---|---|
+| embedding | **4.854** | [4.643, 5.052] | **4.806** | [4.607, 4.989] |
+| block_0 | 4.867 | [4.683, 5.042] | 4.841 | [4.668, 5.006] |
+| block_1 | 4.111 | [3.943, 4.281] | 4.103 | [3.942, 4.263] |
+| block_2 | 3.726 | [3.591, 3.854] | 3.703 | [3.575, 3.826] |
+| block_3 | 3.918 | [3.787, 4.046] | 3.886 | [3.764, 4.008] |
+| block_4 | 2.983 | [2.872, 3.095] | 2.950 | [2.848, 3.057] |
+| block_5 | 2.203 | [2.103, 2.302] | 2.135 | [2.040, 2.228] |
+| block_6 | 1.540 | [1.461, 1.615] | 1.536 | [1.463, 1.605] |
+| block_7 | 1.452 | [1.378, 1.522] | 1.445 | [1.376, 1.509] |
+| block_8 | 1.027 | [0.987, 1.065] | 1.017 | [0.985, 1.047] |
+| block_9 | 0.371 | [0.354, 0.387] | 0.372 | [0.358, 0.384] |
+| block_10 | 0.278 | [0.264, 0.291] | 0.265 | [0.256, 0.274] |
+| block_11 | 0.119 | [0.113, 0.125] | 0.119 | [0.115, 0.123] |
+
+Both paired-contrast CIs are **strictly above zero at every causal point**, so the
+pre-registered H3 decision rule is met: the effect is **direction-specific** (H3
+supported).
+
 - **C3 full-residual:** positive at every layer (6.42 -> 0.72, all CIs above zero on the
-  matched-tokenization subset) -- the broader positive control behaves as a superset of
-  the direction-only effect (H4 supported).
+  matched-tokenization subset of 6,960 items per layer) -- the broader positive control
+  behaves as a superset of the direction-only effect (H4 supported).
 
 **Secondary outcomes.** Donor-consistent shift rate: `number` **0.871** vs
 `same_number` 0.434, `random` 0.483, `full_residual` 0.871. Verb-preference flip rate
 under the number patch: 0.346.
 
-**Subgroups (descriptive).** Template family (mean E, pooled over layers):
-`simple` 3.78 > `near` 2.34 > `attractor` 2.05 (more intervening context weakens the
-effect). Noun stratum: `suffix_transparent` 2.25 vs `nontransparent` 2.27 (no meaningful
-gap). Attractor condition: same-number attractor 2.14 vs opposite-number 1.95. Baseline
-agreement margin by stratum: transparent 3.19, nontransparent 3.32.
+**Subgroups (descriptive; averaged across causal points).** These summaries pool the
+13 causal points, so they mix template with depth and must not be read as layer-invariant
+effects (the causal effect changes strongly with depth, and the `simple` template has a
+direct late-layer route because the subject position *is* the prediction position).
+Template family (mean E, averaged across causal points): `simple` 3.78 > `near` 2.34 >
+`attractor` 2.05. Noun stratum: `suffix_transparent` 2.25 vs `nontransparent` 2.27 (no
+meaningful gap). Attractor condition: same-number attractor 2.14 vs opposite-number 1.95.
+Baseline agreement margin by stratum: transparent 3.19, nontransparent 3.32.
 
 ## 11. Decodability vs causal contribution (H5)
 
 ![selectivity vs causal](assets/fig_selectivity_vs_causal.png)
 
-The two curves point in **opposite directions**: v1.0 `noun_number` selectivity **rises**
-with depth (0.218 at embedding -> 0.353 at block_11), while the causal effect of
-manipulating the decoded direction **decays** with depth (4.84 -> 0.12). This is the
-pre-registered H5: decodability and causal effect are allowed to differ, and they
-demonstrably do. Layers with stronger linear selectivity are *not* the layers where
-manipulating the decoded direction most affects agreement behaviour. The comparison is
-descriptive (13 points, adjacent layers not independent); no layerwise correlation is
-claimed as evidence of a "grammatical-number circuit".
+The layerwise selectivity and causal-effect profiles differ strongly under these two
+metrics: v1.0 `noun_number` selectivity **rises** with depth (0.218 at embedding -> 0.353
+at block_11), while the causal effect of manipulating the decoded direction **decays**
+with depth (4.84 -> 0.12). This is the pre-registered H5: decodability and causal effect
+are allowed to differ, and they demonstrably do. Layers with stronger linear selectivity
+are *not* the layers where manipulating the decoded direction most affects agreement
+behaviour. This says nothing general about the relation between decodability and
+mechanistic use -- the two quantities are different metrics on different scales. The
+comparison is descriptive (13 points, adjacent layers not independent); no layerwise
+correlation is claimed as evidence of a "grammatical-number circuit".
 
 ![causal by layer](assets/fig_causal_by_layer.png)
 
@@ -268,12 +309,11 @@ claimed as evidence of a "grammatical-number circuit".
 
 ## 13. Exact claim boundary
 
-> Replacing only the subject representation's projection on the decoded noun-number
-> direction with the projection from an opposite-number donor shifted Pythia-160M's
-> verb-number preference toward the donor at every layer (strongest at the embedding and
-> block_0), relative to no-op, same-number, and norm-matched random-direction controls.
-> This is evidence that the decoded direction makes a causal contribution to agreement
-> behaviour under the tested intervention.
+> Replacing the subject representation's projection on the decoded noun-number direction
+> with the projection from an opposite-number donor shifted Pythia-160M's verb-number
+> preference toward the donor across all tested causal points. Paired contrasts against
+> same-number and norm-matched orthogonal random-direction interventions were also
+> positive, supporting direction-specific causal contribution under this intervention.
 
 Explicitly **not** claimed: a unique mechanism; necessity of the direction; complete
 mediation; a "grammar circuit"; general syntactic competence; "the model understands
@@ -293,5 +333,10 @@ reading rule is fixed).
 - Authoritative aggregates (committed): `assets/causal_metrics.json`.
 - v1.0 reproduction: `outputs/metrics.json` (gitignored) matches the REPORT.md tables
   within 0.0005 on all 42 rows.
-- Every number in this report is cross-checked against `assets/causal_metrics.json`
-  (see the report/snapshot consistency smoke test).
+- Every number in this report is cross-checked against `assets/causal_metrics.json` by
+  an automated guard: the smoke suite parses this report file, pins the cited headline
+  numbers (primary embedding `mean_e`, full-residual embedding `mean_e`, 7,200 items per
+  causal point, 100,800 number-condition rows including the terminal point, and the H3
+  paired-contrast series against the snapshot), and fails on the banned overstatement
+  phrasings (zero-control wording, a wrong full-residual ratio, a wrong per-layer item
+  count).

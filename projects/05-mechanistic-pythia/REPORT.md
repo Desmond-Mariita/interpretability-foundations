@@ -345,9 +345,12 @@ direction causally contributes to agreement behaviour. Competence gate on dev: *
 confirmatory test split, replacing only the subject's projection on the decoded direction
 with an opposite-number donor's projection shifted the verb contrast toward the donor at
 **every layer** (E = 4.84 at embedding -> 0.12 at block_11; all lemma-cluster 95% CIs
-above zero), while same-number (|E| <= 0.015) and norm-matched random-direction
-(|E| <= 0.066) controls stayed at zero. Selectivity rises with depth; the causal effect
-decays with depth -- decodability and causal contribution diverge.
+above zero), with paired H3 contrasts (number minus same-number; number minus the
+random-seed mean) positive at every causal point. Same-number (|E| <= 0.015) and
+norm-matched random-direction (|E| <= 0.066) effects were much smaller than the primary
+effect and near zero, but not identically zero. Selectivity rises with depth; the causal
+effect decays with depth -- the layerwise selectivity and causal-effect profiles differ
+strongly under these two metrics.
 
 ## 7. References
 

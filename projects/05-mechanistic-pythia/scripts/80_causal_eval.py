@@ -202,6 +202,65 @@ def rate_with_ci(items: pd.DataFrame, value_col: str, n_resamples: int, seed: in
 
 
 # ---------------------------------------------------------------------------
+# Pure: paired H3 contrasts (ADR 006 H3: specificity)
+# ---------------------------------------------------------------------------
+
+
+def paired_condition_contrast(
+    items: pd.DataFrame,
+    condition: str,
+    points: list[str],
+    n_resamples: int,
+    seed: int,
+    random_mean: bool = False,
+) -> dict:
+    """Paired donor-directed-shift contrast: E(number) minus E(condition), per point.
+
+    The comparison is paired on the exact shared item ``(stim_id, verb_sing, verb_plur,
+    point)``. For ``random_mean`` the three random-seed E values are averaged within each
+    item BEFORE the per-item subtraction (the seeds are not independent observations).
+    The paired differences are aggregated with a lemma-cluster bootstrap -- the same unit
+    as the primary analysis. Mismatched or duplicate rows fail loudly.
+
+    Args:
+        items: Per-item intervention rows (from :func:`build_items`).
+        condition: Control condition prefix (e.g. ``same_number``, ``random``).
+        points: Causal depth points to contrast.
+        n_resamples: Bootstrap resamples.
+        seed: Bootstrap seed (determinism).
+        random_mean: Average the control's random seeds within item before subtracting.
+
+    Returns:
+        ``{point: {"mean_diff": ..., "ci": [lo, hi], "n_items": ...}}``.
+    """
+    pair_cols = ["stim_id", "verb_sing", "verb_plur", "point"]
+    num = items[items["condition"] == "number"][[*pair_cols, "lemma", "e"]]
+    other = items[items["condition"].str.startswith(condition)]
+    if random_mean:
+        other = other.groupby([*pair_cols, "lemma"], sort=False)["e"].mean().reset_index()
+    else:
+        other = other[[*pair_cols, "lemma", "e"]]
+    if num[pair_cols].duplicated().any():
+        raise ValueError("number-condition rows are not unique per item")
+    if other[pair_cols].duplicated().any():
+        raise ValueError(f"{condition!r} rows are not unique per item")
+    merged = num.merge(other, on=pair_cols, suffixes=("_num", "_other"), how="inner")
+    if len(merged) != len(num):
+        raise ValueError(
+            f"paired contrast pairing incomplete: {len(merged)}/{len(num)} items matched"
+        )
+    out = {}
+    for point in points:
+        sub = merged[merged["point"] == point]
+        diff = (sub["e_num"] - sub["e_other"]).to_numpy()
+        lo, mean, hi = cluster_mean_bootstrap(
+            diff, sub["lemma_num"].to_numpy(), n_resamples, seed=seed
+        )
+        out[point] = {"mean_diff": float(mean), "ci": [lo, hi], "n_items": len(sub)}
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Pure: snapshot schema + report consistency
 # ---------------------------------------------------------------------------
 
@@ -387,6 +446,12 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
         "n_by_split": manifest["stimuli"]["n_by_split"],
         "n_lemmas": manifest["lexicon"]["n_lemmas"],
         "strata": manifest["lexicon"]["by_stratum"],
+        # explicit lemma-count keys (repair: disambiguate pool vs instantiated vs test)
+        "eligible_lexicon_lemmas": manifest["lexicon"]["n_lemmas"],
+        "instantiated_lemmas": sum(
+            manifest["splits"][s]["n_lemmas"] for s in ("pilot", "dev", "test")
+        ),
+        "test_lemmas": manifest["splits"]["test"]["n_lemmas"],
     }
 
     # v1.0 selectivity (reproduced run) for the decodability-vs-causality comparison
@@ -439,6 +504,15 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
             "n_items": len(sub),
             "n_seeds": sub["condition"].nunique() if cond == "random" else 1,
         }
+    # paired H3 specificity contrasts (ADR 006 H3): E(number) - E(control), paired on the
+    # exact shared item, lemma-cluster bootstrap on the paired differences. The three
+    # random seeds are averaged within item BEFORE subtraction (not independent).
+    controls["paired_contrasts"] = {
+        "number_minus_same": paired_condition_contrast(items, "same_number", points, n_res, seed),
+        "number_minus_random_mean": paired_condition_contrast(
+            items, "random", points, n_res, seed, random_mean=True
+        ),
+    }
     snap["controls"] = controls
 
     for cond in ("number", "same_number", "full_residual", "random"):
@@ -488,17 +562,24 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
             "n_items": len(sub),
         }
 
-    # conclusion (claim-boundary language, ADR 006 Decision 7)
+    # conclusion (claim-boundary language, ADR 006 Decision 7). H3 is claimed only where
+    # the paired contrast CIs are strictly above 0 at every causal point (the pre-registered
+    # decision rule), not from the primary CI alone.
     sig_layers = [p for p in points if primary[p]["ci"][0] > 0]
-    if sig_layers:
+    paired = controls["paired_contrasts"]
+    h3_supported = all(
+        paired["number_minus_same"][p]["ci"][0] > 0
+        and paired["number_minus_random_mean"][p]["ci"][0] > 0
+        for p in points
+    )
+    if sig_layers and h3_supported:
         snap["conclusion"] = (
-            f"Replacing only the subject representation's projection on the decoded "
-            f"noun-number direction with the projection from an opposite-number donor "
-            f"shifted Pythia-160M's verb-number preference toward the donor at "
-            f"{sig_layers}, relative to no-op, same-number, and norm-matched "
-            f"random-direction controls. This is evidence that the decoded direction "
-            f"makes a causal contribution to agreement behaviour under the tested "
-            f"intervention."
+            "Replacing the subject representation's projection on the decoded "
+            "noun-number direction with the projection from an opposite-number donor "
+            "shifted Pythia-160M's verb-number preference toward the donor across all "
+            "tested causal points. Paired contrasts against same-number and "
+            "norm-matched orthogonal random-direction interventions were also positive, "
+            "supporting direction-specific causal contribution under this intervention."
         )
     else:
         snap["conclusion"] = (
@@ -515,7 +596,7 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
     ensure_dirs(ASSETS)
     figure1_causal_by_layer(
         primary,
-        {cond: controls[cond]["points"] for cond in controls},
+        {cond: controls[cond]["points"] for cond in ("same_number", "random", "full_residual")},
         points,
         ASSETS / "fig_causal_by_layer.png",
     )

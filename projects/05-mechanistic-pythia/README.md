@@ -134,10 +134,13 @@ GPT-2 deferral.
 CI [7.06, 7.33]; directional accuracy 1.000). Replacing only the subject's projection on
 the decoded number direction with an opposite-number donor's projection shifted the verb
 logit contrast toward the donor number **at every layer** (E = 4.84 at the embedding,
-decaying to 0.12 at block_11; all 95% lemma-cluster CIs above zero), with same-number
-(|E| <= 0.015) and norm-matched random-direction (|E| <= 0.066) controls at zero and the
+decaying to 0.12 at block_11; all 95% lemma-cluster CIs above zero), with paired H3
+contrasts (number minus same-number, and number minus the random-seed mean) positive at
+every causal point, same-number and norm-matched random-direction effects much smaller
+(|E| <= 0.015 and <= 0.066 versus 4.84 -- near zero but not identically zero), and the
 full-residual positive control reaching 6.42. Selectivity *rises* with depth while the
-causal effect *decays*: decodability and causal contribution diverge.
+causal effect *decays*: the layerwise selectivity and causal-effect profiles differ
+strongly under these two metrics.
 
 Full write-up, figures, provenance:
 [V11_CAUSAL_REPORT.md](V11_CAUSAL_REPORT.md).

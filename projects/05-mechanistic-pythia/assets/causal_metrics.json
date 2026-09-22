@@ -197,7 +197,10 @@
     "strata": {
       "nontransparent": 38,
       "suffix_transparent": 422
-    }
+    },
+    "eligible_lexicon_lemmas": 460,
+    "instantiated_lemmas": 295,
+    "test_lemmas": 90
   },
   "verb_pairs": {
     "kept": [
@@ -690,6 +693,220 @@
       },
       "n_items": 97440,
       "n_seeds": 1
+    },
+    "paired_contrasts": {
+      "number_minus_same": {
+        "embedding": {
+          "mean_diff": 4.854482294718425,
+          "ci": [
+            4.642882409413655,
+            5.052289943059286
+          ],
+          "n_items": 7200
+        },
+        "block_0": {
+          "mean_diff": 4.867206938001845,
+          "ci": [
+            4.682530038409763,
+            5.042169317881266
+          ],
+          "n_items": 7200
+        },
+        "block_1": {
+          "mean_diff": 4.1114249250623915,
+          "ci": [
+            3.942929595735338,
+            4.281432922575209
+          ],
+          "n_items": 7200
+        },
+        "block_2": {
+          "mean_diff": 3.7255081770155165,
+          "ci": [
+            3.591329717848036,
+            3.8543940516577826
+          ],
+          "n_items": 7200
+        },
+        "block_3": {
+          "mean_diff": 3.9182104746500652,
+          "ci": [
+            3.786749947653876,
+            4.045818993250529
+          ],
+          "n_items": 7200
+        },
+        "block_4": {
+          "mean_diff": 2.982679985894097,
+          "ci": [
+            2.871587245941162,
+            3.0946142463684083
+          ],
+          "n_items": 7200
+        },
+        "block_5": {
+          "mean_diff": 2.203283937242296,
+          "ci": [
+            2.1031461781395806,
+            2.3015468343098955
+          ],
+          "n_items": 7200
+        },
+        "block_6": {
+          "mean_diff": 1.5403760528564454,
+          "ci": [
+            1.4614205207824706,
+            1.6152177747090657
+          ],
+          "n_items": 7200
+        },
+        "block_7": {
+          "mean_diff": 1.4516851806640625,
+          "ci": [
+            1.377744978374905,
+            1.5220002638498942
+          ],
+          "n_items": 7200
+        },
+        "block_8": {
+          "mean_diff": 1.0271507941351996,
+          "ci": [
+            0.9870049427880181,
+            1.0646890695359972
+          ],
+          "n_items": 7200
+        },
+        "block_9": {
+          "mean_diff": 0.3712754821777344,
+          "ci": [
+            0.3536627078586155,
+            0.3873084468841553
+          ],
+          "n_items": 7200
+        },
+        "block_10": {
+          "mean_diff": 0.2777664269341363,
+          "ci": [
+            0.26414185396830236,
+            0.2906069441901313
+          ],
+          "n_items": 7200
+        },
+        "block_11": {
+          "mean_diff": 0.11896720886230469,
+          "ci": [
+            0.11304062377081978,
+            0.12452878506978353
+          ],
+          "n_items": 7200
+        }
+      },
+      "number_minus_random_mean": {
+        "embedding": {
+          "mean_diff": 4.8063033407705795,
+          "ci": [
+            4.607192669268007,
+            4.989048903783162
+          ],
+          "n_items": 7200
+        },
+        "block_0": {
+          "mean_diff": 4.840503432662398,
+          "ci": [
+            4.667577511752094,
+            5.005871046066285
+          ],
+          "n_items": 7200
+        },
+        "block_1": {
+          "mean_diff": 4.10271728515625,
+          "ci": [
+            3.942341530764544,
+            4.262616306728787
+          ],
+          "n_items": 7200
+        },
+        "block_2": {
+          "mean_diff": 3.703176738597729,
+          "ci": [
+            3.5753009883739333,
+            3.825661743022777
+          ],
+          "n_items": 7200
+        },
+        "block_3": {
+          "mean_diff": 3.886485005131474,
+          "ci": [
+            3.7637277067678947,
+            4.007941531499227
+          ],
+          "n_items": 7200
+        },
+        "block_4": {
+          "mean_diff": 2.950284791169343,
+          "ci": [
+            2.8479714509469494,
+            3.057152189113475
+          ],
+          "n_items": 7200
+        },
+        "block_5": {
+          "mean_diff": 2.1350379124394174,
+          "ci": [
+            2.0400901612882265,
+            2.227563380912498
+          ],
+          "n_items": 7200
+        },
+        "block_6": {
+          "mean_diff": 1.536191242359303,
+          "ci": [
+            1.462766292218809,
+            1.605014225500601
+          ],
+          "n_items": 7200
+        },
+        "block_7": {
+          "mean_diff": 1.444662102593316,
+          "ci": [
+            1.3763378797460484,
+            1.5089747346242268
+          ],
+          "n_items": 7200
+        },
+        "block_8": {
+          "mean_diff": 1.017030300564236,
+          "ci": [
+            0.984634953463519,
+            1.0469147241380479
+          ],
+          "n_items": 7200
+        },
+        "block_9": {
+          "mean_diff": 0.3716693849916812,
+          "ci": [
+            0.35797655359903974,
+            0.3842695289894386
+          ],
+          "n_items": 7200
+        },
+        "block_10": {
+          "mean_diff": 0.2653518337673611,
+          "ci": [
+            0.2556897227675827,
+            0.2744920750370731
+          ],
+          "n_items": 7200
+        },
+        "block_11": {
+          "mean_diff": 0.11930326391149451,
+          "ci": [
+            0.1147117664195873,
+            0.1233684164683024
+          ],
+          "n_items": 7200
+        }
+      }
     }
   },
   "secondary": {
@@ -876,5 +1093,5 @@
     "block_11": 0.3527226710169744,
     "ln_f": 0.3544059002810295
   },
-  "conclusion": "Replacing only the subject representation's projection on the decoded noun-number direction with the projection from an opposite-number donor shifted Pythia-160M's verb-number preference toward the donor at ['embedding', 'block_0', 'block_1', 'block_2', 'block_3', 'block_4', 'block_5', 'block_6', 'block_7', 'block_8', 'block_9', 'block_10', 'block_11'], relative to no-op, same-number, and norm-matched random-direction controls. This is evidence that the decoded direction makes a causal contribution to agreement behaviour under the tested intervention."
+  "conclusion": "Replacing the subject representation's projection on the decoded noun-number direction with the projection from an opposite-number donor shifted Pythia-160M's verb-number preference toward the donor across all tested causal points. Paired contrasts against same-number and norm-matched orthogonal random-direction interventions were also positive, supporting direction-specific causal contribution under this intervention."
 }

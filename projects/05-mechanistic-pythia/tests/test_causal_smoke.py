@@ -327,3 +327,152 @@ def test_per_point_effect_bootstrap_shape():
     pt = out["embedding"]
     assert pt["n_items"] == 24
     assert pt["ci"][0] <= pt["mean_e"] <= pt["ci"][1]
+
+
+# ---------------------------------------------------------------------------
+# H3 paired contrasts (ADR 006 H3; repair A)
+# ---------------------------------------------------------------------------
+
+
+def _h3_items() -> pd.DataFrame:
+    """Synthetic per-item rows: number E=2, same E=0.2, random seeds 0.05/0.1/0.15."""
+    rows = []
+    for lemma in ("l0", "l1"):
+        for vid, verb in enumerate(("is", "was")):
+            stim = f"s{lemma}-{vid}"
+            base = {
+                "stim_id": stim,
+                "lemma": lemma,
+                "verb_sing": verb,
+                "verb_plur": "are" if verb == "is" else "were",
+            }
+            for point in ("embedding", "block_11"):
+                rows.append({**base, "point": point, "condition": "number", "e": 2.0})
+                rows.append({**base, "point": point, "condition": "same_number", "e": 0.2})
+                for s, e in ((0, 0.05), (1, 0.1), (2, 0.15)):
+                    rows.append({**base, "point": point, "condition": f"random:{s}", "e": e})
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.smoke
+def test_paired_contrast_exact_values_and_random_averaging():
+    """Number - same = 1.8 and number - mean(random seeds) = 1.9 exactly, per point."""
+    mod = _mod("80_causal_eval")
+    items = _h3_items()
+    same = mod.paired_condition_contrast(
+        items, "same_number", ["embedding", "block_11"], n_resamples=20, seed=0
+    )
+    rnd = mod.paired_condition_contrast(
+        items, "random", ["embedding", "block_11"], n_resamples=20, seed=0, random_mean=True
+    )
+    for point in ("embedding", "block_11"):
+        assert same[point]["mean_diff"] == pytest.approx(1.8)  # 2.0 - 0.2
+        assert rnd[point]["mean_diff"] == pytest.approx(1.9)  # 2.0 - mean(0.05,0.1,0.15)
+        assert same[point]["n_items"] == 4  # one-to-one pairing per item
+        assert same[point]["ci"][0] <= same[point]["mean_diff"] <= same[point]["ci"][1]
+
+
+@pytest.mark.smoke
+def test_paired_contrast_is_deterministic_under_seed():
+    """Paired contrasts are identical across runs under the fixed bootstrap seed."""
+    mod = _mod("80_causal_eval")
+    items = _h3_items()
+    a = mod.paired_condition_contrast(items, "same_number", ["embedding"], 50, seed=0)
+    b = mod.paired_condition_contrast(items, "same_number", ["embedding"], 50, seed=0)
+    assert a == b
+
+
+@pytest.mark.smoke
+def test_paired_contrast_mismatched_rows_fail_loudly():
+    """A missing control row must raise, not silently drop the item."""
+    mod = _mod("80_causal_eval")
+    items = _h3_items()
+    # drop one same_number row -> pairing incomplete
+    drop = items[(items["condition"] == "same_number")].index[0]
+    with pytest.raises(ValueError):
+        mod.paired_condition_contrast(items.drop(drop), "same_number", ["embedding"], 20, seed=0)
+    # duplicate a number row -> not unique per item
+    dup = pd.concat([items, items[items["condition"] == "number"].iloc[[0]]])
+    with pytest.raises(ValueError):
+        mod.paired_condition_contrast(dup, "same_number", ["embedding"], 20, seed=0)
+
+
+@pytest.mark.smoke
+def test_snapshot_contains_paired_h3_contrasts():
+    """The committed snapshot carries both H3 paired-contrast series for all causal points."""
+    import json
+    from pathlib import Path
+
+    snap = json.loads(
+        (Path(__file__).resolve().parents[1] / "assets" / "causal_metrics.json").read_text()
+    )
+    pc = snap["controls"]["paired_contrasts"]
+    assert set(pc) == {"number_minus_same", "number_minus_random_mean"}
+    for series in pc.values():
+        for _point, d in series.items():
+            assert {"mean_diff", "ci", "n_items"} <= set(d)
+            assert d["n_items"] == 7200
+    # H3 decision rule: every causal-point CI strictly above 0
+    for series in pc.values():
+        assert all(d["ci"][0] > 0 for d in series.values())
+
+
+# ---------------------------------------------------------------------------
+# Repair I: report <-> snapshot regression guard against the published files
+# ---------------------------------------------------------------------------
+
+_BANNED_PHRASES = (
+    "controls at zero",
+    "stayed at zero",
+    "roughly 60%",
+    "100,800 items per layer",
+)
+
+
+@pytest.mark.smoke
+def test_report_guard_banned_phrases_absent():
+    """The publication docs must not contain the banned overstatement phrases."""
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[1]
+    repo_root = project_root.parents[1]
+    docs = [
+        project_root / "V11_CAUSAL_REPORT.md",
+        project_root / "README.md",
+        project_root / "REPORT.md",
+        repo_root / "README.md",
+        repo_root / "CHANGELOG.md",
+    ]
+    for doc in docs:
+        text = doc.read_text(encoding="utf-8").lower()
+        for phrase in _BANNED_PHRASES:
+            assert phrase not in text, f"banned phrase {phrase!r} found in {doc}"
+
+
+@pytest.mark.smoke
+def test_report_guard_pins_headline_numbers_against_snapshot():
+    """Pin the repaired headline numbers in the published report against the snapshot."""
+    import json
+    from pathlib import Path
+
+    project_root = Path(__file__).resolve().parents[1]
+    report = (project_root / "V11_CAUSAL_REPORT.md").read_text(encoding="utf-8")
+    snap = json.loads((project_root / "assets" / "causal_metrics.json").read_text())
+
+    # primary embedding mean_e and its CI must appear in the report table
+    emb = snap["primary"]["points"]["embedding"]
+    for v in (emb["mean_e"], emb["ci"][0], emb["ci"][1]):
+        assert f"{v:.3f}" in report, f"primary embedding value {v:.3f} missing from report"
+    # full-residual embedding mean_e
+    fr = snap["controls"]["full_residual"]["points"]["embedding"]
+    assert f"{fr['mean_e']:.3f}" in report, "full-residual embedding value missing from report"
+    # item-count wording: 7,200 per causal point; 100,800 including the terminal point
+    assert "7,200 items per causal point" in report
+    assert "100,800 number-condition rows including the terminal" in report
+    # H3 paired contrasts cited
+    pc = snap["controls"]["paired_contrasts"]
+    for series in ("number_minus_same", "number_minus_random_mean"):
+        d = pc[series]["embedding"]
+        assert f"{d['mean_diff']:.3f}" in report, f"{series} embedding contrast missing"
+    # the removed ratio claim must not reappear in the wrong form
+    assert "roughly 60%" not in report.lower()
