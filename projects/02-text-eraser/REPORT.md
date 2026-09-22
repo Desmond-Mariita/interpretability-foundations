@@ -1,10 +1,11 @@
 # ERASER scientific protocol — repaired implementation
 
-**2026-09-21: code repair complete; scientific rerun pending.** The original trained
-checkpoint could not be located locally or on manyee. No corrected headline metrics
-or ordering are reported. Previous results used an invalid alignment/frozen-input
-contract and mismatched target scalars; [historical artifacts](results/superseded-v1/README.md)
-are superseded. See [REPAIR_REPORT.md](REPAIR_REPORT.md) for implementation and validation.
+**2026-09-22: corrected full real-data rerun completed and published.** The fresh-v2
+checkpoint, prepared data, all four attribution caches and evaluation outputs passed
+identity, hash, cache and numerical-convergence verification; IG converges at
+n_steps=800 (see [REPAIR_REPORT.md](REPAIR_REPORT.md)). Previous results used an invalid
+alignment/frozen-input contract and mismatched target scalars; [historical artifacts](results/superseded-v1/README.md)
+are superseded. Corrected headline metrics are reported below.
 
 ## Canonical input and target
 
@@ -53,6 +54,34 @@ Undefined AUPRC examples are excluded explicitly with valid counts reported. Exa
 bootstrap intervals are conditional on this checkpoint and explainer seed. All six
 pairwise comprehensiveness comparisons include random, with Bonferroni correction.
 Nonsignificance is not equivalence. Classifier accuracy/F1/calibration use intact inputs.
+
+## Corrected full-run results (2026-09-22)
+
+Full test split (199 reviews) under `eraser-visible-words-v2`, fresh-v2 checkpoint,
+evaluation at commit `b5701ec`. All word-score caches passed manifest identity,
+fingerprint, hash and cache verification; IG completeness residuals passed the recorded
+tolerance on all 199 examples (worst ratio 0.356). LIME surrogate fits were finite
+(weighted R² 0.228–0.915). Means with example-bootstrap 95% CIs:
+
+| Method | Comprehensiveness | AOPC | AUPRC | Sufficiency |
+|---|---:|---:|---:|---:|
+| IG (n_steps=800) | 0.2052 [0.153, 0.258] | 0.1678 [0.142, 0.191] | 0.3391 [0.314, 0.365] | 0.4337 [0.366, 0.498] |
+| Gradient × Input | 0.0687 [0.037, 0.103] | 0.1068 [0.088, 0.127] | 0.3353 [0.310, 0.360] | 0.4497 [0.383, 0.514] |
+| LIME | 0.1114 [0.070, 0.155] | 0.1476 [0.123, 0.172] | 0.2845 [0.261, 0.310] | 0.4480 [0.381, 0.513] |
+| Random | 0.0366 [0.012, 0.062] | 0.0703 [0.054, 0.088] | 0.2664 [0.242, 0.292] | 0.4639 [0.398, 0.528] |
+
+Pairwise comprehensiveness (paired example bootstrap, Bonferroni α = 0.0083): IG
+significantly outperforms random (+0.169, p = 0.0005), gradient × input (+0.137,
+p = 0.0005) and LIME (+0.094, p = 0.0015); LIME significantly outperforms random
+(+0.075, p = 0.002). Gradient × input vs LIME (p = 0.030) and gradient × input vs
+random (p = 0.096) are not significant at the corrected level.
+
+Ordering: IG leads on perturbation sensitivity and plausibility, and its lead is now
+statistically supported — though corrected magnitudes are far below the withdrawn
+historical values and cannot be compared with them. All methods retain high sufficiency
+(0.43–0.46): keeping only the rationale preserves most original-class probability.
+AUPRC is defined on 195/199 examples; four are excluded with valid counts recorded.
+Bootstrap intervals are conditional on this checkpoint and explainer seed.
 
 ## Provenance and publication
 

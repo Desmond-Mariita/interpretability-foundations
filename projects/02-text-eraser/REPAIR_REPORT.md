@@ -1,7 +1,10 @@
 # Phase 1A — ERASER scientific repair
 
-**Status (2026-09-21): code repair complete and validated offline; scientific rerun pending.**
-No corrected scientific results are claimed. The original trained checkpoint is unavailable.
+**Status (2026-09-22): corrected full real-data rerun completed and published.**
+The fresh-v2 checkpoint, all four attribution caches and evaluation outputs passed
+identity, hash, cache and numerical-convergence verification; corrected metrics and
+the published figure are committed. The original v1 checkpoint remains unavailable;
+these results come from the fresh-v2 training frozen in commit `6e3652f`.
 
 ## Findings verified before modification
 
@@ -104,24 +107,28 @@ These historical means are **invalid comparisons**, retained solely to identify 
 withdrawn (199 test reviews). The changed protocol precludes interpreting differences as
 an isolated method improvement.
 
-| Method | Old comprehensiveness | Old AOPC | Corrected values |
-|---|---:|---:|---|
-| IG | 0.52017 | 0.33997 | Pending |
-| Gradient x Input | 0.02667 | 0.03311 | Pending |
-| LIME | 0.01516 | 0.03713 | Pending |
-| Random | 0.05613 | 0.04652 | Pending |
+| Method | Old comprehensiveness | Old AOPC | Corrected comprehensiveness | Corrected AOPC |
+|---|---:|---:|---:|---:|
+| IG | 0.52017 | 0.33997 | 0.2052 | 0.1678 |
+| Gradient x Input | 0.02667 | 0.03311 | 0.0687 | 0.1068 |
+| LIME | 0.01516 | 0.03713 | 0.1114 | 0.1476 |
+| Random | 0.05613 | 0.04652 | 0.0366 | 0.0703 |
 
-**Ordering:** unknown. There is no evidence yet that the historical IG lead survives.
-**Current interpretation:** offline tests validate mapping/target mechanics only. No method
-is currently established as more perturbation-faithful on this dataset under the repaired
-protocol. Nonsignificance is not equivalence, and perturbation effects do not establish
-hidden causal computation.
+**Ordering:** IG leads under the corrected protocol with statistical support
+(comprehensiveness +0.094 over LIME, p = 0.0015 Bonferroni-corrected; full pairwise
+comparisons in `metrics.json`). Corrected magnitudes are far below the withdrawn
+historical values and cannot be compared with them.
+**Current interpretation:** perturbation effects do not establish hidden causal
+computation, results are conditional on one checkpoint and one explainer seed, and
+nonsignificance among the lower-ranked methods is not equivalence.
 
 ## Remaining limitations
 
 Masking can be out of distribution; max-absolute aggregation loses sign and is sensitive
 to word length; partial-word context remains available even in sufficiency interventions.
-IG convergence and LIME surrogate fit must be inspected on the real pilot/full run.
+IG convergence and LIME surrogate fit were inspected on the real pilot/full run:
+IG required n_steps=800 (see the convergence finding above); LIME fits were finite
+across the split.
 One model and explainer seed do not capture training/attribution variability. No baseline
 sensitivity study, SHAP validation or broader attribution benchmark is included.
 
