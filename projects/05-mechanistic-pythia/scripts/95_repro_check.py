@@ -34,6 +34,7 @@ def parse_report_table(text: str) -> dict[str, dict[str, tuple[float, float, flo
 
 
 def main() -> None:  # pragma: no cover - verification tooling
+    """Compare outputs/metrics.json against REPORT.md tables and print the verdict."""
     from pathlib import Path
 
     report = Path("REPORT.md").read_text(encoding="utf-8")

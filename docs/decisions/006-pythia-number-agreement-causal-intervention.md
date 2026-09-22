@@ -173,6 +173,25 @@ model, search prompts/templates, loosen the gate, or cherry-pick verbs. The boun
 is reported as: *Pythia-160M did not demonstrate the prerequisite agreement behaviour under
 the pre-registered stimulus design, so a causal number intervention is not interpretable.*
 
+### Pilot finding -- tied-embedding logit readout (recorded during plumbing validation)
+
+The pinned pythia-160m config declares `tie_word_embeddings: false` (written for
+transformers 4.24), and the checkpoint contains no output-head weights. transformers 5.9.0
+therefore builds an **untied, randomly initialized** `embed_out` head; `model.out.logits`
+is a random projection and does not reflect the model's true next-token distribution.
+The true GPT-NeoX architecture computes logits with the **tied** embedding matrix, and the
+original EleutherAI checkpoints contain no separate head -- so the behavioural readout for
+this study is:
+
+```text
+logits = final_layer_norm(h)[prediction_position] @ embed_in.weight^T
+```
+
+`model.out.logits` is **not used** anywhere in the v1.1 pipeline; `awake.eval.causal.tied_logits`
+implements the readout and is locked by a unit test. All logit caches generated before this
+fix (pilot only) were invalidated and re-generated. This is a plumbing fix discovered before
+any dev/test evaluation, not a design change; the freeze is re-versioned accordingly.
+
 ## Decision 5 -- Probe-direction recovery, intervention, and controls
 
 ### Direction recovery (train split only)

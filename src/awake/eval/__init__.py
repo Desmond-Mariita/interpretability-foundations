@@ -21,6 +21,7 @@ from awake.eval.causal import (
     standardized_to_residual_direction,
     stimulus_hash,
     table_hash,
+    tied_logits,
     unit_direction,
 )
 from awake.eval.erasure import erase, top_k_mask
@@ -101,6 +102,7 @@ __all__ = [
     "stimulus_hash",
     "sufficiency",
     "table_hash",
+    "tied_logits",
     "token_auprc",
     "token_iou",
     "token_prf1_at_k",

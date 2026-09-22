@@ -70,7 +70,7 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
             handles.append(base.final_layer_norm.register_forward_hook(mk("ln_f")))
             try:
                 with torch.no_grad():
-                    out = model(**{k: v.to("cuda") for k, v in enc.items()})
+                    model(**{k: v.to("cuda") for k, v in enc.items()})
             finally:
                 for h in handles:
                     h.remove()
@@ -81,8 +81,15 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
                 resid[name] = t[0, pos].to(torch.float32).cpu().numpy().astype(np.float32)
             np.savez(out_dir / f"{r.stim_id}.npz", **resid)
 
+            # tied-embedding verb logits (the true GPT-NeoX head; NOT model.out.logits,
+            # which is a random untied head under transformers 5.9 + this pinned config)
             vids = [verb_ids[f] for f in kept_forms]
-            lg = out.logits[0, r.final_token_pos, vids].detach().to("cpu").numpy()
+            lg = (
+                (captured["ln_f"][0, r.final_token_pos] @ model.gpt_neox.embed_in.weight.T)[vids]
+                .detach()
+                .to("cpu")
+                .numpy()
+            )
             row = {"stim_id": r.stim_id}
             for f, v in zip(kept_forms, lg, strict=True):
                 row[f"logit_{f}"] = float(v)

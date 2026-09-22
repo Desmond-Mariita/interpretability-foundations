@@ -85,8 +85,22 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
         def forward_with_patch(
             prompt_text: str, subject_last: int, final_pos: int, point: str, new_row=None
         ) -> np.ndarray:
-            """One forward; if ``new_row`` given, replace the subject row at ``point``."""
+            """One forward; if ``new_row`` given, replace the subject row at ``point``.
+
+            Verb logits are computed with the TIED embedding head
+            (``final_layer_norm output @ embed_in.weight.T``): the pinned pythia-160m
+            config declares ``tie_word_embeddings: false``, which makes transformers 5.9
+            build an untied random ``embed_out``; ``model.out.logits`` is not used.
+            """
             enc = tok(prompt_text, return_tensors="pt", add_special_tokens=False)
+            captured_lnf: dict[str, torch.Tensor] = {}
+
+            def capture_lnf(_m, _i, module_out):
+                captured_lnf["t"] = (
+                    module_out[0] if isinstance(module_out, tuple) else module_out
+                ).detach()
+
+            lnf_handle = model.gpt_neox.final_layer_norm.register_forward_hook(capture_lnf)
             handle = None
             if point is not None:
 
@@ -101,11 +115,18 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
                 handle = _hook_module(model, point).register_forward_hook(hook)
             try:
                 with torch.no_grad():
-                    out = model(**{k: v.to("cuda") for k, v in enc.items()})
+                    model(**{k: v.to("cuda") for k, v in enc.items()})
             finally:
                 if handle is not None:
                     handle.remove()
-            return out.logits[0, final_pos, vid_list].detach().to("cpu").numpy()
+                lnf_handle.remove()
+            lg = (
+                (captured_lnf["t"][0, final_pos] @ model.gpt_neox.embed_in.weight.T)[vid_list]
+                .detach()
+                .to("cpu")
+                .numpy()
+            )
+            return lg
 
         rows = []
         noop_max = 0.0
