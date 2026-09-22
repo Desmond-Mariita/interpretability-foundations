@@ -57,18 +57,18 @@
   "auroc_diffs": {
     "fused_vs_image": {
       "point_diff": 0.01880000000000004,
-      "ci_low": null,
-      "ci_high": null,
+      "ci_low": -0.0132822165816849,
+      "ci_high": 0.05367234333993927,
       "n_resamples": 2000,
-      "n_valid": null,
+      "n_valid": 2000,
       "seed": 0
     },
     "fused_vs_text": {
       "point_diff": 0.13564799999999988,
-      "ci_low": null,
-      "ci_high": null,
+      "ci_low": 0.09477082063084914,
+      "ci_high": 0.1771889384326908,
       "n_resamples": 2000,
-      "n_valid": null,
+      "n_valid": 2000,
       "seed": 0
     }
   },
@@ -79,17 +79,24 @@
       "text": 0.6750419704241264
     },
     "mean_signed_phi": {
-      "image": null,
-      "text": null
+      "image": -0.11445833294733612,
+      "text": -0.1965014102001652
     },
     "signed_share_mean": -0.034063245777018566,
-    "magnitude_share_mean": null,
+    "magnitude_share_mean": 0.5489875830296171,
     "magnitude_share_of_mean_abs": {
       "image": 0.5550116632184305,
       "text": 0.44498833678156946
     },
-    "interaction": null,
-    "per_example": null
+    "interaction": {
+      "mean": -0.09302322001840921,
+      "mean_abs": 0.3577607263590692,
+      "ci_low": -0.13436478572305757,
+      "ci_high": -0.0526914011550971,
+      "n_boot": 2000,
+      "seed": 0
+    },
+    "per_example": "outputs/attribution/l14/dev_attribution.json"
   },
   "background": {
     "type": "empirical_train",
@@ -97,16 +104,8 @@
     "seed": 1337
   },
   "provenance": {
-    "script": "scripts/25_repair_metrics.py",
-    "basis": "committed aggregates from the original full run; per-example run artifacts were not cached (see REPAIR_REPORT.md)",
-    "auroc_diffs": {
-      "point_diff": "exact: difference of committed AUROC means",
-      "paired_ci": "unavailable from cached aggregates; populated by `just eval` on re-run"
-    },
-    "removed_prob_array_diffs": {
-      "note": "previous `auroc_diffs` were paired mean differences over per-example probability arrays (mislabeled as AUROC); kept here for traceability only and not used in any claim",
-      "fused_vs_image": -0.03040810200649678,
-      "fused_vs_text": 0.04111333327124596
-    }
+    "manifest": "outputs/manifest.json",
+    "run_id": "20260922-025212Z",
+    "git_sha": "ec271c0233d3b3ec868e7b31075a34541276be99"
   }
 }

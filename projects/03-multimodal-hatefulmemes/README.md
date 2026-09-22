@@ -6,14 +6,21 @@ of the signal came from the image modality and how much from the text modality?
 **Answer.** **On average, the image carries the larger absolute margin contribution.**
 On dev (500, balanced), a frozen CLIP-ViT-L/14 + LightGBM head reaches **AUROC 0.711**
 fused vs **0.692 image-only** and **0.575 text-only** — text alone is barely above
-chance. The fused−image AUROC point difference is **+0.019** (fused−text **+0.136**); the
-paired bootstrap CIs for these differences require per-example scores that were not
-cached, so they are only populated by a re-run — overlapping *marginal* CIs are not a
-test. The 2-player interventional modality Shapley agrees in magnitude: mean|φ| is
-**image 0.84 vs text 0.68** (aggregate magnitude share of the mean absolutes **0.56 /
-0.44**). The mean *signed* image share is near zero (−0.034): its sign measures the
-direction the image pushes the margin, not dominance. See [`metrics.json`](metrics.json)
-and the [hero figure](assets/modality_attribution.png).
+chance. The paired AUROC differences (paired bootstrap over shared example indices,
+2 000 resamples, seed 0) are **fused − image = +0.019 [−0.013, +0.054]** — the CI
+includes 0, so fusion's edge over the image head is *not* established at n = 500 — and
+**fused − text = +0.136 [+0.095, +0.177]**, whose CI excludes 0. (Marginal CI overlap is
+not used as a test.) The 2-player interventional modality Shapley agrees in magnitude:
+mean|φ| is **image 0.84 vs text 0.68** (mean per-example magnitude share **0.55**;
+aggregate magnitude share of the mean absolutes **0.56 / 0.44**). The mean *signed*
+image share is near zero (−0.034): its sign measures the direction the image pushes the
+margin, not dominance; the mean signed contributions are −0.11 (image) and −0.20
+(text). The interaction contrast is mildly **sub-additive**: mean I = **−0.09**
+[−0.13, −0.05] — non-additivity of the margin under the intervention game, nothing
+more. See [`metrics.json`](metrics.json) and the
+[figures](assets/modality_attribution.png); full run provenance (dataset identity,
+model revision, hashes) lives in `outputs/manifest.json` locally and is summarised in
+[REPAIR_REPORT.md](REPAIR_REPORT.md).
 
 **Why it matters.** Multimodal classifiers blend image and text features in ways that are
 not easily inspected from the model's output alone. A modality-level attribution gives a
@@ -117,8 +124,10 @@ any HM-derived embeddings into the repository.
   results are unaffected, but displayed probabilities are indicative.
 - Dev is the only labelled evaluation split here (500, balanced). `test.jsonl` is
   unlabelled.
-- The original full-run artifacts (embeddings, heads, per-example scores) were not
-  cached: paired AUROC CIs, mean signed φ, mean magnitude share and the interaction
-  aggregate are therefore `null` in `metrics.json` and populate on re-run. Point
-  AUROC differences and the mean-absolute aggregates trace to the committed values.
+- All headline numbers above come from the 2026-09-22 reproduction rerun (run id
+  `20260922-025212Z`), which re-derived the original run's aggregates bit-identically
+  (per-head AUROC/AUPRC/accuracy match the 2024–26 committed values) and additionally
+  produced the paired CIs, signed/magnitude-share summaries and interaction values.
+  Run artifacts (embeddings, boosters, per-example rows) are retained under
+  `outputs/` with hashes in `outputs/manifest.json`.
 - Single dataset, single backbone family, single classifier. No generalisation claim.
