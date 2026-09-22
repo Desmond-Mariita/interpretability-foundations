@@ -151,5 +151,7 @@ A GPU rerun is not needed for this repair.
 ## 12. Branch / commit / PR
 
 - Branch: `fix/p4-aokvqa-claims-provenance` (from `origin/main` @ 830a7e9)
-- Commits and Draft PR: see final status report of the implementing session.
+- Commit: `63ded6d` `fix(p4): repair claims, estimand language, and provenance`
+  (+ `docs(p4): record PR reference in REPAIR_REPORT` follow-up)
+- Draft PR: https://github.com/Desmond-Mariita/interpretability-foundations/pull/3
 - PR is left **unmerged** for Gemini/Codex review.
