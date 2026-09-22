@@ -51,7 +51,7 @@ def main() -> None:  # pragma: no cover - slow path (GPU)
         for r in sub.itertuples():
             enc = tok(r.prompt_text, return_tensors="pt", add_special_tokens=False)
             ids = enc["input_ids"].tolist()
-            assert ids == r.input_ids, f"tokenizer drift for {r.stim_id}"
+            assert ids == list(r.input_ids), f"tokenizer drift for {r.stim_id}"
             captured: dict[str, torch.Tensor] = {}
             handles = []
             base = model.gpt_neox
