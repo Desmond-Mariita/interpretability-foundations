@@ -36,5 +36,26 @@ def test_attribute_rows_have_image_text_shares():
     rows = attr_mod.attribute_split(img[:10], txt[:10], heads["fused"], ib, tb)
     assert len(rows) == 10
     r0 = rows[0]
-    assert {"phi_image", "phi_text", "total", "share"} <= set(r0)
-    assert -1.0 <= r0["share"] <= 1.0
+    assert {
+        "phi_image",
+        "phi_text",
+        "total",
+        "signed_share",
+        "magnitude_share",
+        "interaction",
+    } <= set(r0)
+    assert -1.0 <= r0["signed_share"] <= 1.0
+    assert 0.0 <= r0["magnitude_share"] <= 1.0
+
+
+@pytest.mark.smoke
+def test_attribute_row_shapley_efficiency_and_interaction_consistency():
+    """Verify per-row efficiency (phi sums to total) and the interaction identity."""
+    img, txt, y = stub.tiny_embeddings(n=60, d=8)
+    heads = train_mod.fit_heads(img, txt, y, {"n_estimators": 20}, seed=0)
+    ib, tb = img[:15], txt[:15]
+    rows = attr_mod.attribute_split(img[:10], txt[:10], heads["fused"], ib, tb)
+    for row in rows:
+        assert abs((row["phi_image"] + row["phi_text"]) - row["total"]) < 1e-9
+        # interaction is non-additivity of the margin game: a defined float, not NaN
+        assert np.isfinite(row["interaction"])

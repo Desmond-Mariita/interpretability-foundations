@@ -41,8 +41,7 @@ def main() -> None:
     import lightgbm as lgb
     import pandas as pd
     from _paths import PROJECT_ROOT, embeddings_dir, load_config, models_dir
-
-    from awake.eval.bootstrap import paired_diff_test
+    from _stats import paired_auroc_bootstrap
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
@@ -62,7 +61,9 @@ def main() -> None:
         "n": int(y.size),
         "models": {n: metric_block(y, probs[n], seed=tcfg["background_seed"]) for n in feats},
         "auroc_diffs": {
-            f"fused_vs_{m}": paired_diff_test(probs["fused"], probs[m], n_resamples=2000, seed=0)
+            # Paired bootstrap over shared example indices: both AUROCs are
+            # recomputed inside each resample and their difference recorded.
+            f"fused_vs_{m}": paired_auroc_bootstrap(y, probs["fused"], probs[m], seed=0)
             for m in ("image", "text")
         },
     }

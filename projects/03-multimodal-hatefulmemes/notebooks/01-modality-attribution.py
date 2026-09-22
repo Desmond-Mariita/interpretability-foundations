@@ -49,10 +49,14 @@
 # |---|---|
 # | φ_image | Shapley value for the image modality (raw-margin units) |
 # | φ_text | Shapley value for the text modality (raw-margin units) |
-# | s = φ_image / (|φ_image| + |φ_text| + ε) | Signed image share ∈ [−1, 1] |
+# | s = φ_image / (|φ_image| + |φ_text| + ε) | Signed image share ∈ [−1, 1]: the sign is the *direction* the image pushes the margin (up/down), **not** dominance |
+# | m = \|φ_image\| / (\|φ_image\| + \|φ_text\|) | Image magnitude share ∈ [0, 1] (0.5 when both are ~0): the share of the total absolute contribution — the dominance-appropriate quantity |
+# | I = v({img,txt}) − v({img}) − v({txt}) + v(∅) | Non-additivity of the margin under the interventional game (not semantic synergy) |
 #
-# Bootstrap 95% CIs on per-head AUROC/AUPRC/accuracy and on fused−unimodal gaps are in
-# `metrics.json`.  See `REPORT.md §4` for metric definitions.
+# Bootstrap 95% CIs on per-head AUROC/AUPRC/accuracy are in `metrics.json`.  Paired
+# fused−unimodal AUROC differences are a paired bootstrap over shared example indices
+# (see `REPORT.md §4.1`); their point values are exact, while the CIs populate on a
+# re-run of the pipeline.  See `REPORT.md §4` for metric definitions.
 
 # %%
 # ---------------------------------------------------------------------------
@@ -130,13 +134,20 @@ if not METRICS_PATH.exists():
 with METRICS_PATH.open() as _fh:
     metrics_raw: dict = json.load(_fh)
 
-# Expected top-level schema (see scripts/11_eval.py and scripts/20_attribute.py):
+# Expected top-level schema (see scripts/11_eval.py, scripts/20_attribute.py and
+# scripts/25_repair_metrics.py):
 #   "split":       "dev"
 #   "n":           500
 #   "models":      {name: {"auroc": {mean, lo, hi}, "auprc": {...}, "acc": {...}}}
-#   "auroc_diffs": {"fused_vs_image": {mean, lo, hi}, "fused_vs_text": {...}}
-#   "attribution": {"aggregate": {...}, "per_label": {...}, "per_correct": {...}, ...}
+#   "auroc_diffs": {"fused_vs_image": {point_diff, ci_low, ci_high, n_resamples,
+#                                       n_valid, seed}, "fused_vs_text": {...}}
+#                  (paired bootstrap over shared example indices; ci_* are null
+#                   until the pipeline is re-run)
+#   "attribution": {n, mean_abs_phi, mean_signed_phi, signed_share_mean,
+#                   magnitude_share_mean, magnitude_share_of_mean_abs,
+#                   interaction, per_example}
 #   "background":  {"type": "empirical_train", "n": 200, "seed": ...}
+#   "provenance":  repair notes (only in the committed file until a re-run)
 
 models_data: dict = metrics_raw.get("models", {})
 auroc_diffs: dict = metrics_raw.get("auroc_diffs", {})
@@ -202,12 +213,16 @@ df_models  # noqa: B018  (intentional notebook display expression)
 # Print fused − unimodal AUROC differences
 # ---------------------------------------------------------------------------
 if auroc_diffs:
-    print("\n=== Fused - unimodal AUROC differences (bootstrap 95% CI) ===")
+    print("\n=== Fused - unimodal AUROC differences (paired bootstrap) ===")
     for pair_key, entry in auroc_diffs.items():
-        mean = entry.get("mean", float("nan"))
-        lo = entry.get("lo", float("nan"))
-        hi = entry.get("hi", float("nan"))
-        print(f"  {pair_key}: {mean:+.3f} [{lo:+.3f}, {hi:+.3f}]")
+        point = entry.get("point_diff", float("nan"))
+        lo = entry.get("ci_low")
+        hi = entry.get("ci_high")
+        if lo is None or hi is None:
+            ci_str = "paired 95% CI: unavailable (requires re-run; see REPORT §4.1)"
+        else:
+            ci_str = f"paired 95% CI: [{lo:+.3f}, {hi:+.3f}]"
+        print(f"  {pair_key}: point diff {point:+.3f}; {ci_str}")
 else:
     print("No auroc_diffs key in metrics.json.")
 
@@ -218,12 +233,15 @@ else:
 # shows the distribution of the **signed image share**
 # `s = φ_image / (|φ_image| + |φ_text| + ε)` across the dev set.
 #
-# - **s > 0** (right): the image modality drives the prediction.
-# - **s < 0** (left): the text modality drives the prediction.
-# - **|s| near 1**: one modality dominates; **|s| near 0**: roughly balanced.
+# - **s > 0** (right): the image's contribution pushes the margin **up** (towards hateful).
+# - **s < 0** (left): the image's contribution pushes the margin **down**.
+# - The sign is a **direction**, not a dominance measure: a large negative φ_image
+#   dominates the text in magnitude while giving s < 0.
+# - Dominance is read from the **magnitude share** `m = |φ_image| / (|φ_image| + |φ_text|)`
+#   (m > 0.5: the image carries the larger absolute contribution).
 #
-# Separate panels show the full dev set, and breakdowns by gold label and prediction
-# correctness (clearly labelled as post-hoc conditioning, not model selection criteria).
+# The committed figure is the signed-share histogram from the original run; re-running
+# `just attribute` regenerates a two-panel version (signed share + magnitude share).
 
 # %%
 # ---------------------------------------------------------------------------
@@ -258,27 +276,42 @@ plt.show()
 # ## 3. Aggregate attribution summary
 #
 # The table below shows the aggregate modality attribution over all dev examples.
-# Numbers are from `metrics.json["attribution"]["aggregate"]`.
+# Numbers are from `metrics.json["attribution"]`.  `null` entries require a re-run of
+# the pipeline (the original per-example values were not cached).
 
 # %%
 # ---------------------------------------------------------------------------
 # Print aggregate attribution numbers
 # ---------------------------------------------------------------------------
-agg = attribution_data.get("aggregate", {})
-if agg:
-    print("\n=== Aggregate modality attribution (dev, n=500) ===")
-    for k, v in agg.items():
-        if isinstance(v, float):
-            print(f"  {k}: {v:.4f}")
-        elif isinstance(v, dict):
-            mean = v.get("mean", float("nan"))
-            lo = v.get("lo", float("nan"))
-            hi = v.get("hi", float("nan"))
-            print(f"  {k}: {mean:.4f} [{lo:.4f}, {hi:.4f}]")
-        else:
-            print(f"  {k}: {v}")
+_attr = attribution_data or {}
+print("\n=== Aggregate modality attribution (dev, n=500) ===")
+print(f"  n                        : {_attr.get('n', '?')}")
+for k in ("mean_abs_phi", "mean_signed_phi", "magnitude_share_of_mean_abs"):
+    v = _attr.get(k)
+    if isinstance(v, dict):
+        print(f"  {k:<25}: image {v.get('image')}, text {v.get('text')}")
+    else:
+        print(f"  {k:<25}: {v}")
+for k in ("signed_share_mean", "magnitude_share_mean"):
+    v = _attr.get(k)
+    if isinstance(v, float):
+        print(f"  {k:<25}: {v:+.4f}")
+    else:
+        print(f"  {k:<25}: unavailable (requires re-run)")
+interaction_entry = _attr.get("interaction")
+if isinstance(interaction_entry, dict):
+    print(
+        f"  interaction (mean/|mean|) : {interaction_entry['mean']:+.4f} / "
+        f"{interaction_entry['mean_abs']:.4f} "
+        f"[{interaction_entry['ci_low']:+.4f}, {interaction_entry['ci_high']:+.4f}]"
+    )
 else:
-    print("No aggregate attribution data found in metrics.json.")
+    print("  interaction               : unavailable (requires re-run)")
+print(
+    "\n  signed_share_mean: mean DIRECTION of the image contribution (not dominance).\n"
+    "  magnitude share  : dominance-appropriate quantity; both sign and magnitude\n"
+    "                     are reported separately (see REPORT.md §4.2)."
+)
 
 # %% [markdown]
 # ## 4. Worked example: real modality-Shapley on a hand-drawn synthetic input
@@ -309,7 +342,7 @@ _example_ok = False
 try:
     from PIL import Image, ImageDraw
 
-    from awake.eval import modality_shapley
+    from awake.eval import interventional_values, shapley_2player
 
     sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
     import _models  # project CLIP loader/encoder (handles the pooler_output API trap)
@@ -355,14 +388,18 @@ try:
         b = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-9)
         return (a * b).sum(axis=1)
 
-    _phi = modality_shapley(
+    # Compute the four coalition values explicitly so sign, magnitude and
+    # interaction are all reported (same quantities as scripts/20_attribute.py).
+    _v_empty, _v_img, _v_txt, _v_ab = interventional_values(
         _img_emb[0], _txt_emb[0], _cos_value_fn,
         img_background=_img_emb[1:], txt_background=_txt_emb[1:],
     )
-    _phi_image, _phi_text = _phi["image"], _phi["text"]
+    _phi_image, _phi_text = shapley_2player(_v_empty, _v_img, _v_txt, _v_ab)
     _total = _phi_image + _phi_text
     _eps = 1e-9
     _share = _phi_image / (abs(_phi_image) + abs(_phi_text) + _eps)
+    _mag_share = abs(_phi_image) / (abs(_phi_image) + abs(_phi_text) + _eps)
+    _interaction = _v_ab - _v_img - _v_txt + _v_empty
 
     # Real leave-one-word-out occlusion on the caption (alignment drop vs the focal image).
     _words = _focal_caption.split()
@@ -426,10 +463,12 @@ if _example_ok:
     plt.show()
 
     print("\nWorked-example attribution (real outputs of awake.eval.modality_shapley):")
-    print(f"  phi_image   = {_phi_image:+.4f}")
-    print(f"  phi_text    = {_phi_text:+.4f}")
-    print(f"  total       = {_total:+.4f}   (= v({{img,txt}}) - v(empty), CLIP alignment)")
-    print(f"  image share = {_share:+.4f}   (>0 = image-dominant, <0 = text-dominant)")
+    print(f"  phi_image        = {_phi_image:+.4f}")
+    print(f"  phi_text         = {_phi_text:+.4f}")
+    print(f"  total            = {_total:+.4f}   (= v({{img,txt}}) - v(empty), CLIP alignment)")
+    print(f"  signed share     = {_share:+.4f}   (sign = DIRECTION the image pushes the margin)")
+    print(f"  magnitude share  = {_mag_share:.4f}   (share of |phi| from the image; >0.5 = image-dominant)")
+    print(f"  interaction I    = {_interaction:+.4f}   (= v(ab) - v(a) - v(b) + v(empty))")
     print("\n  Caption words by leave-one-out alignment drop:")
     for _tok, _imp in _word_imp:
         print(f"    '{_tok}': {_imp:+.4f}")
@@ -441,30 +480,37 @@ if _example_ok:
 # %% [markdown]
 # ## 5. Discussion
 #
-# _Full discussion is in `REPORT.md §6` and will be populated once the end-to-end
-# run completes.  The framing below describes what the results would show._
+# Full discussion is in `REPORT.md §6`.  The framing below reflects the corrected
+# statistical semantics.
 #
-# The **signed image share** `s` is the primary summary quantity.  A positive `s`
-# (image-dominant) means the CLIP image embedding carries more of the log-odds shift
-# from the background; a negative `s` (text-dominant) means the CLIP text embedding
-# does.  The aggregate over dev reveals the model's default modality reliance; the
-# per-label and per-correctness breakdowns reveal whether that reliance is consistent
-# across hateful and benign examples and whether failures cluster in one modality.
+# Sign and magnitude are reported separately.  The **signed image share** `s` summarises
+# *direction*: a positive `s` means the CLIP image embedding pushes the log-odds *up*
+# from the background; a negative `s` means it pushes *down*.  It does not say which
+# modality dominates — a large negative φ_image dominates the text in magnitude while
+# giving s < 0.  The **magnitude share** `m` is the dominance-appropriate quantity
+# (m > 0.5: image carries the larger absolute contribution).  A mean `m` near 0.5 would
+# not by itself demonstrate "balanced reliance"; two Shapley values alone establish
+# neither semantic complementarity nor causal necessity.
 #
-# The **fused − unimodal AUROC gaps** (§1 above) quantify whether fusion actually helps.
-# A gap that straddles zero at n = 500 is inconclusive; a consistently positive gap
-# indicates the two modalities carry complementary signal that the fused head exploits.
+# The **fused − unimodal AUROC differences** (§1 above) are paired bootstrap estimates
+# over shared example indices.  A paired CI that excludes zero would be evidence about
+# *predictive* gain from fusion at n = 500 — not about semantic complementarity.
+# Overlapping marginal CIs are not a test.
 #
 # ### Key limitations to keep in mind
 #
 # - The empirical background (~64% benign) makes `v(empty)` and absolute φ magnitudes
-#   prior-dependent.  The **signed image share `s`** normalises this away; the
-#   balanced-background ablation in `metrics.json` quantifies the residual shift.
-# - Factorised background pairs are off-manifold for the tree model.  The mean-baseline
-#   ablation in `metrics.json` quantifies the practical effect.
+#   prior-dependent.  Per-example shares (`s`, `m`) normalise magnitudes; mean-baseline
+#   and balanced-background sensitivity analyses are specified in ADR 003 but have
+#   **not been run** (future work).
+# - Factorised background pairs are off-manifold for the tree model (inherent to
+#   marginal Shapley on trees).
+# - Paired AUROC CIs, mean signed φ, mean magnitude share and the interaction
+#   aggregate are `null` in `metrics.json` until the pipeline is re-run (the original
+#   per-example artifacts were not cached).
 # - The synthetic qualitative example above (cell 4) is illustrative only.  It uses
-#   Gaussian noise and a made-up caption — not a real meme — to demonstrate the output
-#   format without violating the HM licence.
+#   hand-drawn synthetic scenes and made-up captions — not real memes — to demonstrate
+#   the output format without violating the HM licence.
 # - The Space uses CLIP-ViT-B/32 and a generic non-HM background; its attributions
 #   are illustrative and not numerically comparable to the L/14 headline.
 #

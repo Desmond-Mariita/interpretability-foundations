@@ -56,28 +56,57 @@
   },
   "auroc_diffs": {
     "fused_vs_image": {
-      "mean_diff": -0.03040810200649678,
-      "ci_low": -0.04486211070367097,
-      "ci_high": -0.015741547535559508,
-      "p_value": 0.0
+      "point_diff": 0.01880000000000004,
+      "ci_low": null,
+      "ci_high": null,
+      "n_resamples": 2000,
+      "n_valid": null,
+      "seed": 0
     },
     "fused_vs_text": {
-      "mean_diff": 0.04111333327124596,
-      "ci_low": 0.022534803124110592,
-      "ci_high": 0.05862477012854774,
-      "p_value": 0.0
+      "point_diff": 0.13564799999999988,
+      "ci_low": null,
+      "ci_high": null,
+      "n_resamples": 2000,
+      "n_valid": null,
+      "seed": 0
     }
   },
   "attribution": {
+    "n": 500,
     "mean_abs_phi": {
       "image": 0.8419460371862458,
       "text": 0.6750419704241264
     },
-    "share_mean": -0.034063245777018566,
-    "n": 500
+    "mean_signed_phi": {
+      "image": null,
+      "text": null
+    },
+    "signed_share_mean": -0.034063245777018566,
+    "magnitude_share_mean": null,
+    "magnitude_share_of_mean_abs": {
+      "image": 0.5550116632184305,
+      "text": 0.44498833678156946
+    },
+    "interaction": null,
+    "per_example": null
   },
   "background": {
     "type": "empirical_train",
-    "n": 200
+    "n": 200,
+    "seed": 1337
+  },
+  "provenance": {
+    "script": "scripts/25_repair_metrics.py",
+    "basis": "committed aggregates from the original full run; per-example run artifacts were not cached (see REPAIR_REPORT.md)",
+    "auroc_diffs": {
+      "point_diff": "exact: difference of committed AUROC means",
+      "paired_ci": "unavailable from cached aggregates; populated by `just eval` on re-run"
+    },
+    "removed_prob_array_diffs": {
+      "note": "previous `auroc_diffs` were paired mean differences over per-example probability arrays (mislabeled as AUROC); kept here for traceability only and not used in any claim",
+      "fused_vs_image": -0.03040810200649678,
+      "fused_vs_text": 0.04111333327124596
+    }
   }
 }

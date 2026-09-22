@@ -1,6 +1,6 @@
 # ADR 003 — Hateful Memes licence constraints, modality Shapley game, interventional baseline, and logit value function
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-09-22; see [Amendment](#amendment-2026-09-22--statistical-repair))
 **Date:** 2026-05-26
 
 ## Context
@@ -291,3 +291,49 @@ contribution to the decision regardless of where on the margin scale the example
 | Modality attribution | Exact 2-player interventional Shapley game | Parsimony: the question is modality-level (two numbers); dimensionality makes per-dimension SHAP impractical as a cross-check |
 | Baseline | Empirical train background (N=200, primary) + mean-baseline + balanced-background ablations | Reflects observed train distribution; mean and balanced variants quantify sensitivity |
 | Value function | Raw margin (logit) | Additivity on the unbounded margin; no sigmoid compression near 0/1; probability mapped back for display only |
+
+---
+
+## Amendment (2026-09-22) — statistical repair
+
+Adopted after the scientific audit documented in
+`projects/03-multimodal-hatefulmemes/REPAIR_REPORT.md`. This amendment supersedes the
+clauses below; the decisions themselves (2-player game, interventional background, raw
+margin) stand unchanged.
+
+1. **Paired AUROC comparisons (new contract).** The fused-vs-unimodal AUROC-difference
+   estimand is a paired bootstrap over shared example indices: resample examples as
+   paired units, recompute the fused AUROC and the unimodal AUROC inside each resample,
+   record the difference, and take the percentile CI of that distribution. Degenerate
+   resamples (single-class label vectors) are counted and skipped, never coerced.
+   Significance is read from the paired CI — overlap of marginal CIs is not a test.
+   Implementation: `projects/03-multimodal-hatefulmemes/scripts/_stats.py`
+   (`paired_auroc_bootstrap`), consumed by `scripts/11_eval.py`. The previous
+   `auroc_diffs` entries were paired mean differences over per-example probability
+   arrays and are superseded (preserved only under `metrics.json → provenance`).
+2. **Signed share semantics (supersedes Decision 2's share language).** The signed
+   image share `s = φ_image / (|φ_image| + |φ_text| + ε)` summarises *direction*: its
+   sign records whether the image's contribution pushes the margin up or down. It does
+   not identify which modality dominates. The dominance-appropriate quantity is the
+   **magnitude share** `m = |φ_image| / (|φ_image| + |φ_text|)` (0.5 when both
+   contributions are ~0). Both are reported; neither may be described as
+   "image-dominant" or "text-dominant" on the basis of `s` alone.
+3. **Per-example persistence (supersedes Decision 2's consequences).** Per-example
+   attribution rows are written by `just attribute` to
+   `outputs/attribution/<variant>/dev_attribution.json` (a local run artifact); only
+   aggregates enter the committed `metrics.json`. The original run's per-example
+   values were not retained.
+4. **Background ablations (supersedes Decision 3's reporting clauses).** The
+   mean-baseline and balanced-background ablations were specified but never
+   implemented or executed; no ablation numbers exist in `metrics.json` and none are
+   claimed. They remain future work.
+5. **Interaction contrast (new, bounded).** `I = v({img,txt}) − v({img}) − v({txt}) +
+   v(∅)` is added as a secondary analysis: non-additivity of the margin under the
+   interventional game. Its interpretation is limited to that statement; it is not
+   semantic synergy and not causal interaction. Real-data values require a re-run
+   (original coalition values were not cached); the computation and its unit tests
+   are in place.
+6. **Cross-validation claim (correction).** Hyperparameters are fixed in
+   `configs/train.yaml`; no cross-validation was run. Earlier README/REPORT language
+   about "train-only 5-fold cross-validation" described a procedure that was never
+   implemented and is withdrawn.
