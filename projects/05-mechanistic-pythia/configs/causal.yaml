@@ -1,0 +1,90 @@
+# P5 v1.1 -- causal number-agreement intervention on Pythia-160M (ADR 006).
+# This file is part of the pre-registered design freeze; changing it after the freeze
+# invalidates the confirmatory test run.
+
+# Model / data identity (mirrors data.yaml + probe.yaml)
+model_id: "EleutherAI/pythia-160m"
+model_revision: "50f5173d932e8e61f858120bcb800b97af589f46"
+ud_tag: "r2.14"
+
+# --- Stimulus design -------------------------------------------------------
+templates:
+  simple: "The {subject}"
+  near: "The {subject} near the park"
+  attractor: "The {subject} near the {attractor}"
+# Template families per split (attractor family held out of dev: ADR 006 Decision 4)
+families:
+  dev: ["simple", "near"]
+  test: ["simple", "near", "attractor"]
+
+# Attractors: fixed surface + explicit number annotation (Sing/Plur).
+attractors:
+  park: Sing
+  parks: Plur
+  river: Sing
+  rivers: Plur
+  gate: Sing
+  gates: Plur
+  fence: Sing
+  fences: Plur
+
+# Target verb pairs (singular, plural). Both forms must be exactly one tokenizer token
+# (leading-space convention) under the pinned tokenizer; failing pairs are excluded
+# deterministically and recorded in the run manifest.
+verb_pairs:
+  - [is, are]
+  - [was, were]
+  - [has, have]
+  - [does, do]
+
+# --- Noun lexicon (UD English-EWT train) ------------------------------------
+lexicon:
+  min_surface_freq: 3        # each chosen surface must occur >= this many times in train
+  surface_regex: "^[a-z]+$"  # letter-only lowercase surfaces (template cleanliness)
+  strata_rule: "suffix"      # suffix_transparent iff plural == singular + 's'/'es'; else nontransparent
+
+# --- Splits ------------------------------------------------------------------
+splits:
+  pilot_n: 5                 # first N sorted lemmas (plumbing only, never analysed)
+  dev_frac: 0.7              # remaining lemmas -> dev fraction
+  max_dev_lemmas: 200        # compute cap for dev (rows scale linearly)
+  max_test_lemmas: 90        # compute cap for test
+  seed: 0                    # seeded shuffle over the sorted lemma list
+
+# --- Probe-direction recovery (train split only; v1.0 protocol) ---------------
+probe:
+  C: 0.01                    # v1.0-chosen C for noun_number; re-verified on dev before use
+  max_iter: 2000
+  random_state: 0
+  train_token_cap: 60000
+  train_cap_seed: 0
+  positive_class: 1          # Plur=1, Sing=0; positive projection = plural
+
+# --- Intervention -------------------------------------------------------------
+intervention:
+  causal_points: ["embedding", "block_0", "block_1", "block_2", "block_3", "block_4",
+                  "block_5", "block_6", "block_7", "block_8", "block_9", "block_10",
+                  "block_11"]
+  terminal_points: ["ln_f"]  # terminal / no-downstream-mixing control only
+  random_seeds: [0, 1, 2]    # C2: K=3 norm-matched random directions (orthogonal to u)
+  donor_pairing_seed: 0      # C1: cyclic same-number donor pairing within strata
+  noop_tolerance: 1.0e-6     # C0: max |logit difference| vs baseline
+  cache_dtype: "float32"     # cached subject-position residuals
+  subject_align: "last"      # last overlapping subword (v1.0 convention, ADR 005 Decision 2)
+
+# --- Competence gate (H1; pre-registered, evaluated on dev baseline) ----------
+gate:
+  cluster: "lemma"
+  gate1:                     # paired subject-number effect, CI strictly above 0
+    require_ci_above: 0.0
+  gate2:                     # directional cluster accuracy, CI lower bound above chance
+    chance: 0.5
+    require_ci_above: 0.5
+  require_all: true          # both gates must pass
+
+# --- Bootstrap ----------------------------------------------------------------
+bootstrap:
+  n_resamples: 2000
+  seed: 0
+  alpha: 0.05
+  cluster: "lemma"           # resampling unit for all primary CIs

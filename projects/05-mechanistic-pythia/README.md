@@ -28,8 +28,11 @@ per-type labels, token-rate-matched, K=5 seeds). Primary metric: **balanced accu
 (probe) - balanced_accuracy(control)** by depth, with paired sentence-cluster bootstrap
 95% CIs.
 
-**Emergence.** Peak = argmax selectivity over the 13-point depth axis. Earliest emergence =
-earliest depth point whose selectivity CI overlaps the peak's CI.
+**Peak and earliest-indistinguishable depth.** Peak = argmax selectivity over the 13-point
+depth axis. Earliest depth statistically indistinguishable from the peak = earliest depth
+point whose selectivity CI overlaps the peak's CI. This is a **descriptive** CI-overlap rule,
+not a hypothesis test: CI overlap is not proof of equivalence, and "earliest" here is not
+"first availability" -- all three properties are linearly decodable from the embedding onward.
 
 **Selectivity is necessary, not sufficient.** Positive selectivity shows the property is
 more linearly recoverable than an arbitrary word-type code; it does not show causal use.
@@ -63,10 +66,44 @@ export PATH="$HOME/.local/bin:$PATH"
 uv run pytest projects/05-mechanistic-pythia -m "unit or smoke" --no-cov -v
 ```
 
+## v1.1 -- causal number-intervention (pre-registered; ADR 006)
+
+```bash
+export P5_PROJECT_ROOT=$PWD/projects/05-mechanistic-pythia
+
+# v1.0 pipeline (steps 1-4 above) must complete first.
+
+# Step 5: deterministic stimulus set + splits (no model)
+uv run python projects/05-mechanistic-pythia/scripts/40_stimuli.py
+
+# Step 6: recover the per-layer noun_number probe direction (train split only)
+uv run python projects/05-mechanistic-pythia/scripts/50_probe_direction.py
+
+# Step 7: design freeze (commit implementation first; records the freeze git SHA + hashes)
+uv run python projects/05-mechanistic-pythia/scripts/90_freeze.py
+
+# Step 8: baseline residuals + verb logits (GPU; run in tmux)
+uv run python projects/05-mechanistic-pythia/scripts/60_baseline.py pilot dev
+uv run python projects/05-mechanistic-pythia/scripts/60_baseline.py test
+
+# Step 9: intervention passes + controls (GPU; run in tmux)
+uv run python projects/05-mechanistic-pythia/scripts/70_intervention.py pilot dev
+uv run python projects/05-mechanistic-pythia/scripts/70_intervention.py test
+
+# Step 10: competence gate (dev) + confirmatory outcomes (test) + figures
+uv run python projects/05-mechanistic-pythia/scripts/80_causal_eval.py
+```
+
+Ordering discipline: the design freeze precedes dev/test model evaluation; the test
+split runs exactly once (confirmatory); pilot is plumbing only. See
+[V11_CAUSAL_REPORT.md](V11_CAUSAL_REPORT.md) and
+[ADR 006](../../docs/decisions/006-pythia-number-agreement-causal-intervention.md).
+
 ## Outputs
 
 - `outputs/metrics.json` -- per-(property, layer) balanced accuracy, control accuracy,
-  selectivity, cluster-bootstrap 95% CIs, emergence summary (gitignored).
+  selectivity, cluster-bootstrap 95% CIs, peak-selectivity summary (descriptive
+  earliest-within-peak-CI rule; gitignored).
 - `assets/probe_is_noun.png`, `assets/probe_is_verb.png`, `assets/probe_noun_number.png`
   -- per-property depth plots.
 - `assets/hero.png` -- three-property selectivity-by-depth overlay.

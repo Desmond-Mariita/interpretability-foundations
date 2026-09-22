@@ -42,6 +42,13 @@ def load_pythia(model_id: str, revision: str, device: str = "cpu"):  # pragma: n
     return model, tok
 
 
+def load_tokenizer(model_id: str, revision: str):  # pragma: no cover - slow
+    """Load only the pinned Fast tokenizer (no model weights; used by 40_stimuli)."""
+    from transformers import AutoTokenizer
+
+    return AutoTokenizer.from_pretrained(model_id, revision=revision)
+
+
 def extract_points(
     model, tok, sentence_words, space_after, n_blocks, device="cpu"
 ):  # pragma: no cover - slow

@@ -14,6 +14,7 @@ CONFIGS = PROJECT_ROOT / "configs"
 PREPARED = OUTPUTS / "prepared"
 ACTS = OUTPUTS / "acts"
 CONLLU = OUTPUTS / "conllu"
+STIM_DIR = OUTPUTS / "stimuli"  # v1.1 causal-study artifacts (stimuli, baseline, interventions)
 
 
 def load_config(name: str) -> dict:

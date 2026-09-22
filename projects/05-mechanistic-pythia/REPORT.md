@@ -131,9 +131,12 @@ frequency). Repeated over K=5 seeds; control balanced accuracy is averaged over 
 - **CIs:** paired sentence-cluster bootstrap (2,000 resamples). Sentences are the resampling
   unit (tokens within a sentence are correlated). Probe and control are recomputed on the
   same resampled sentences (paired), giving correct variance estimates for selectivity.
-- **Emergence.** Peak = argmax selectivity over the 13 depth points. Earliest emergence =
-  earliest depth point whose selectivity CI overlaps the peak's CI (avoids over-reading a
-  noisy argmax; `ln_f` excluded from peak search).
+- **Peak and earliest-indistinguishable depth.** Peak = argmax selectivity over the 13 depth
+  points. Earliest depth statistically indistinguishable from the peak = earliest depth point
+  whose selectivity CI overlaps the peak's CI (avoids over-reading a noisy argmax; `ln_f`
+  excluded from peak search). This is a **descriptive** rule about the selectivity curve: CI
+  overlap is not a hypothesis test, and "earliest" does not mean the property first becomes
+  available there -- probe accuracy is near ceiling at the embedding layer (section 4).
 
 ### Word-to-token alignment
 
@@ -187,7 +190,7 @@ the committed figures + this report carry the results.
 **train_n:** 60000 | **test_n:** 25094
 **base_rate:** 0.170 | **majority_baseline:** 0.835
 **OOV token rate (test types unseen in train):** 0.135
-**Peak emergence point:** block_11 | **Earliest within peak CI:** block_10
+**Peak selectivity point:** block_11 | **Earliest depth within peak CI (descriptive):** block_10
 
 ### 4.2 `is_verb` -- probe vs. control balanced accuracy by depth
 
@@ -213,14 +216,15 @@ the committed figures + this report carry the results.
 **train_n:** 60000 | **test_n:** 25094
 **base_rate:** 0.110 | **majority_baseline:** 0.896
 **OOV token rate (test types unseen in train):** 0.139
-**Peak emergence point:** block_11 | **Earliest within peak CI:** block_9
+**Peak selectivity point:** block_11 | **Earliest depth within peak CI (descriptive):** block_9
 
 ### 4.3 `noun_number` -- probe vs. control balanced accuracy by depth
 
 Note: the high balanced accuracy at `embedding` / `block_0` reflects **plural-suffix
 orthography** (the `-s` plural morpheme is often the last subword of a plural noun at every
-depth), not transformer computation. The emergence story is the depth at which selectivity
-rises *above* that orthographic baseline.
+depth), not transformer computation. Selectivity increases with depth; this describes how the
+probe's edge over its control grows, **not** when the property first becomes available
+(`noun_number` is linearly decodable from the embedding onward).
 
 ![probe_noun_number](assets/probe_noun_number.png)
 
@@ -245,7 +249,7 @@ rises *above* that orthographic baseline.
 **base_rate:** 0.240 | **majority_baseline:** 0.785
 **OOV token rate (test types unseen in train):** 0.190
 **Underpowered flag:** False (train_n 34577 >= 3000)
-**Peak emergence point:** block_11 | **Earliest within peak CI:** block_7
+**Peak selectivity point:** block_11 | **Earliest depth within peak CI (descriptive):** block_7
 
 ### 4.4 Hero figure: selectivity by depth across all three properties
 
@@ -254,19 +258,23 @@ rises *above* that orthographic baseline.
 The hero figure overlays the three properties' selectivity-by-depth curves and circles each
 peak. The `ln_f` extra point is reported in the tables above but kept off the depth axis.
 
-## 5. Emergence summary
+## 5. Peak-selectivity summary
 
-| Property | Peak point | Earliest within peak CI | Selectivity (embedding -> peak) | Notes |
+| Property | Peak selectivity point | Earliest depth within peak CI (descriptive) | Selectivity (embedding -> peak) | Notes |
 |---|---|---|---|---|
 | is_noun | block_11 | block_10 | 0.084 -> 0.201 | gradual ramp, peaks at the last block |
 | is_verb | block_11 | block_9 | 0.087 -> 0.200 | gradual ramp, peaks at the last block |
-| noun_number | block_11 | block_7 | 0.218 -> 0.353 | high orthographic baseline at layer 0; emerges earliest |
+| noun_number | block_11 | block_7 | 0.218 -> 0.353 | high orthographic baseline at layer 0; reaches within-peak-CI earliest |
 
 **What the run shows.** For all three properties, selectivity **rises monotonically with
 depth and peaks at the final block (`block_11`)**, with `ln_f` essentially tied to `block_11`
-(the final layernorm barely changes linear decodability). The emergence is a **gradual ramp**,
-not a sharp transition: by the earliest-within-peak-CI rule, `is_verb` emerges by `block_9`,
-`is_noun` by `block_10`, and `noun_number` by `block_7`.
+(the final layernorm barely changes linear decodability). The selectivity curve is a
+**gradual ramp**, not a sharp transition: by the descriptive earliest-within-peak-CI rule,
+`is_verb` is within the peak's CI from `block_9`, `is_noun` from `block_10`, and
+`noun_number` from `block_7`. These are descriptions of the selectivity curve, **not** claims
+about when a property first becomes linearly available: probe balanced accuracy is already
+near ceiling at the **embedding** layer for all three properties, so linear availability
+precedes every one of these depths.
 
 **The rise is driven mostly by the control falling, not the probe improving.** Probe
 balanced accuracy is already near-ceiling at the **embedding** layer (is_noun 0.934,
@@ -276,17 +284,21 @@ roughly flat (or dips slightly at the deepest blocks). What changes with depth i
 is_verb; with one negligible blip for noun_number) (e.g. is_noun
 0.849 at the embedding -> 0.748 at `block_11`).
 Interpreted through the necessary-not-sufficient lens (section 1 / section 6): these
-properties are *linearly present from the embedding onward*, but the **deeper residual stream
-carries progressively less raw word-type identity** with which a probe could fit arbitrary
-labels -- so the probe's edge over its control widens with depth. Selectivity here measures
-"abstraction away from memorisable surface identity" as much as "newly emerging structure".
+properties are *linearly present from the embedding onward*, and the deeper residual stream
+makes **this particular linear control task** (fitting arbitrary per-type labels) progressively
+harder -- so the probe's edge over its control widens with depth. A falling control score shows
+that this control task becomes harder to decode at depth; it does **not** prove that total
+lexical identity information has disappeared from the residual stream. Selectivity here
+measures "edge over an arbitrary word-type code" -- which widens with depth primarily because
+the control declines, not because the probe improves.
 
 **`noun_number` carries the orthographic-confound caveat.** Its probe accuracy is the highest
 of the three even at the embedding (0.983), consistent with the plural `-s`
 morpheme sitting in the last subword; its selectivity is also the largest (0.353 at the
-peak) and emerges earliest. This is exactly the confound flagged in section 6 -- the
-`noun_number` signal is partly surface-orthographic, not purely a learned grammatical-number
-representation.
+peak) and reaches within-peak-CI earliest. This is exactly the confound flagged in section 6 --
+the `noun_number` signal is partly surface-orthographic, not purely a learned grammatical-number
+representation. Decodability, even with high selectivity, says nothing about causal use --
+that is the question the v1.1 intervention study addresses.
 
 
 ## 6. Limitations
@@ -301,8 +313,8 @@ recoverability beyond an arbitrary type code, but lexical identity, **suffix ort
 Ravichander et al. 2021) can all produce positive selectivity. Linear decodability is not
 evidence the model *uses* the feature.
 
-**Last-subword pooling.** Last-subword pooling entangles emergence with subword count and,
-for `noun_number`, with the plural morpheme. `first`/`mean` pooling is a config option; a
+**Last-subword pooling.** Last-subword pooling entangles the depth profile with subword count
+and, for `noun_number`, with the plural morpheme. `first`/`mean` pooling is a config option; a
 `last`-vs-`first` (and mean) pooling sensitivity check was **not run** here -- future work. The
 single-vs-multi-subword split per property is likewise **not logged** in this run's
 `metrics.json` -- future work.
