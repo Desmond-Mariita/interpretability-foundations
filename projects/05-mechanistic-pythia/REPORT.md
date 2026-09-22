@@ -336,6 +336,19 @@ web-text domain (UD-EWT); **linear probes only**. Activation patching and SAE in
 explicitly **deferred** (README scope v1.1). Results do not generalise to other architectures,
 sizes, or languages without further verification.
 
+## 6.5. v1.1 extension -- causal number intervention (summary)
+
+The v1.1 study (pre-registered in ADR 006; full write-up in
+[V11_CAUSAL_REPORT.md](V11_CAUSAL_REPORT.md)) asked whether the decoded `noun_number`
+direction causally contributes to agreement behaviour. Competence gate on dev: **passed**
+(paired subject-number effect 7.20 [7.06, 7.33]; directional accuracy 1.000). On the
+confirmatory test split, replacing only the subject's projection on the decoded direction
+with an opposite-number donor's projection shifted the verb contrast toward the donor at
+**every layer** (E = 4.84 at embedding -> 0.12 at block_11; all lemma-cluster 95% CIs
+above zero), while same-number (|E| <= 0.015) and norm-matched random-direction
+(|E| <= 0.066) controls stayed at zero. Selectivity rises with depth; the causal effect
+decays with depth -- decodability and causal contribution diverge.
+
 ## 7. References
 
 - Hewitt, J., & Liang, P. (2019). Designing and interpreting probes with control tasks.

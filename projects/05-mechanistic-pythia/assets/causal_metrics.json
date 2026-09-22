@@ -1,0 +1,880 @@
+{
+  "schema_version": 1,
+  "run_id": "p5-v11-causal",
+  "model": "EleutherAI/pythia-160m",
+  "model_revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+  "ud_tag": "r2.14",
+  "design_freeze": {
+    "version": "v1.1-design-freeze-5",
+    "git_sha": "0b256c5889da366f970b2458461f3ea5415ea87d",
+    "created_utc_note": "recorded at freeze time",
+    "model_id": "EleutherAI/pythia-160m",
+    "model_revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+    "tokenizer_revision": "50f5173d932e8e61f858120bcb800b97af589f46",
+    "ud_tag": "r2.14",
+    "config": {
+      "causal_sha256": "96a1688f0878c4984b14771d103965875fc8bf31dab88a01f1f8800740da5dfc",
+      "probe_sha256": "7cc60fe4eff8a59e2971e1eb2e2e318bef334a3673c0ac866a432db888da5faa",
+      "data_sha256": "f08d7cda4bbb1055991a26d682229581549367c868ee34679a9f94ba9b720ec9"
+    },
+    "stimulus": {
+      "table_sha256": "6a98507f1d6f5ed6817bee86109820b956cc8f26c323d1df7700ed7865d8f673",
+      "row_hash_sha256": "4f6c583c31230b6e90d0763a8c096b8979bee6278a8ad11d1ae18a6ce1ab9b9f",
+      "n_rows": 2700,
+      "n_by_split": {
+        "dev": 800,
+        "pilot": 100,
+        "test": 1800
+      },
+      "n_lemmas": 460,
+      "strata": {
+        "nontransparent": 38,
+        "suffix_transparent": 422
+      },
+      "lemma_split_hash": "3ea920013c63b1afc7f83755623bc8adc7456f8532c37d02909b0929a159d450",
+      "template_families": {
+        "dev": [
+          "simple",
+          "near"
+        ],
+        "test": [
+          "simple",
+          "near",
+          "attractor"
+        ]
+      },
+      "templates": {
+        "simple": "The {subject}",
+        "near": "The {subject} near the park",
+        "attractor": "The {subject} near the {attractor}"
+      }
+    },
+    "verb_pairs": {
+      "kept": [
+        [
+          "is",
+          "are"
+        ],
+        [
+          "was",
+          "were"
+        ],
+        [
+          "has",
+          "have"
+        ],
+        [
+          "does",
+          "do"
+        ]
+      ],
+      "excluded": []
+    },
+    "direction": {
+      "manifest_sha256": "0bbf61bf337ac2e90b3c6ff22fb91baff6e76c88fb018c4a9706200cd825c4cb",
+      "points": {
+        "embedding": {
+          "sha256": "5a02ee08908154f43938928b9de6d816bc9df83cd068e3899ec2d1a031790690",
+          "flipped": false
+        },
+        "block_0": {
+          "sha256": "de278be36a5574f40cc9b15cb2028503c9937b37950c2b5e869fb0a78c117dc0",
+          "flipped": false
+        },
+        "block_1": {
+          "sha256": "b59dfc0ce243cd5ef57f489ef385b038b015af46b72f7a9954a318a7d7cc60ce",
+          "flipped": false
+        },
+        "block_2": {
+          "sha256": "d65f9f0cda22f473acdfcd51619394ba2ba5e7f1e6ac2de14ff20a4de6f4df1c",
+          "flipped": false
+        },
+        "block_3": {
+          "sha256": "578c02e4621e6e816c88d6b03183b8896ef0d9347be2adc102007953407b320d",
+          "flipped": false
+        },
+        "block_4": {
+          "sha256": "3ae3c48c70626bce1749c490cee4461f27e7e39ddfc0bb39fef4c74fb70a3baa",
+          "flipped": false
+        },
+        "block_5": {
+          "sha256": "f8376b1cd658c155843b7b4bacb441a748d1d29bcad8d9424cc3193a06f4fc38",
+          "flipped": false
+        },
+        "block_6": {
+          "sha256": "fef2d746407e58324a893b811cfec86234e28e2cbb4e420b5e6e02b0271b3fb7",
+          "flipped": false
+        },
+        "block_7": {
+          "sha256": "03879bc405c018a63187f0a1dbfd201adb5f1772977e03b12fc42349c5223812",
+          "flipped": false
+        },
+        "block_8": {
+          "sha256": "0f8896853d094c3efba7edf02bcc9e325f3ca5fa245fe647468b43c44d35b669",
+          "flipped": false
+        },
+        "block_9": {
+          "sha256": "bca2f14358f703d147cd59c1a5983226936f42eb60f81a7750f2ddbb460f67b4",
+          "flipped": false
+        },
+        "block_10": {
+          "sha256": "e6dd96010cdf4e701e5c17d584e6cfa4f96450a5770c5393be27412ca3ce2cf8",
+          "flipped": false
+        },
+        "block_11": {
+          "sha256": "66b2cae17c02ff0fdc72cc96f41c9e23e24119863e84cf68413193fac47ef843",
+          "flipped": false
+        },
+        "ln_f": {
+          "sha256": "da3e2f334c1d081bfc8808dcdb62712bbe4b630df06802f7ff2316ef3f2bce2e",
+          "flipped": false
+        }
+      }
+    },
+    "intervention": {
+      "definition": "h'_r = h_r + (u.h_d - u.h_r) * u at the subject's last subword",
+      "causal_points": [
+        "embedding",
+        "block_0",
+        "block_1",
+        "block_2",
+        "block_3",
+        "block_4",
+        "block_5",
+        "block_6",
+        "block_7",
+        "block_8",
+        "block_9",
+        "block_10",
+        "block_11"
+      ],
+      "terminal_points": [
+        "ln_f"
+      ],
+      "conditions": [
+        "number",
+        "same_number",
+        "random:{0,1,2}",
+        "full_residual"
+      ],
+      "random_seeds": [
+        0,
+        1,
+        2
+      ],
+      "donor_pairing_seed": 0,
+      "noop_tolerance": 1e-06,
+      "scoring_convention": "E = y_d x (M_patched - M_baseline); y_d = donor number for number/full_residual, recipient number for same_number, opposite of recipient for random (the specificity yardstick)"
+    },
+    "gate": {
+      "cluster": "lemma",
+      "gate1": {
+        "require_ci_above": 0.0
+      },
+      "gate2": {
+        "chance": 0.5,
+        "require_ci_above": 0.5
+      },
+      "require_all": true
+    },
+    "primary_metric": "per-layer mean donor-directed shift E (opposite-number direction patch)",
+    "bootstrap": {
+      "unit": "lemma",
+      "n_resamples": 2000,
+      "seed": 0
+    },
+    "manifest_sha256": "d6651d7168152af4e1cf7f0d990dabb47ca535a240d673262fc30d2a6b122137"
+  },
+  "stimulus": {
+    "table_sha256": "6a98507f1d6f5ed6817bee86109820b956cc8f26c323d1df7700ed7865d8f673",
+    "n_rows": 2700,
+    "n_by_split": {
+      "dev": 800,
+      "pilot": 100,
+      "test": 1800
+    },
+    "n_lemmas": 460,
+    "strata": {
+      "nontransparent": 38,
+      "suffix_transparent": 422
+    }
+  },
+  "verb_pairs": {
+    "kept": [
+      [
+        "is",
+        "are"
+      ],
+      [
+        "was",
+        "were"
+      ],
+      [
+        "has",
+        "have"
+      ],
+      [
+        "does",
+        "do"
+      ]
+    ],
+    "excluded": []
+  },
+  "competence_gate": {
+    "gate1": {
+      "statistic": 7.196722221374512,
+      "ci": [
+        7.059733503341675,
+        7.32749842262268
+      ],
+      "pass": true
+    },
+    "gate2": {
+      "statistic": 1.0,
+      "ci": [
+        1.0,
+        1.0
+      ],
+      "chance": 0.5,
+      "pass": true
+    },
+    "passed": true,
+    "n_lemma_verb_rows": 800
+  },
+  "primary": {
+    "points": {
+      "embedding": {
+        "mean_e": 4.839126018948025,
+        "ci": [
+          4.6382436464097765,
+          5.025874067518446
+        ],
+        "n_items": 7200
+      },
+      "block_0": {
+        "mean_e": 4.854499672783746,
+        "ci": [
+          4.681849991904365,
+          5.0200786190032956
+        ],
+        "n_items": 7200
+      },
+      "block_1": {
+        "mean_e": 4.108268517388238,
+        "ci": [
+          3.948450131310357,
+          4.268682584550645
+        ],
+        "n_items": 7200
+      },
+      "block_2": {
+        "mean_e": 3.7267166815863715,
+        "ci": [
+          3.6006761209699842,
+          3.8500562862820096
+        ],
+        "n_items": 7200
+      },
+      "block_3": {
+        "mean_e": 3.9155742475721573,
+        "ci": [
+          3.7903355221218535,
+          4.039233573489719
+        ],
+        "n_items": 7200
+      },
+      "block_4": {
+        "mean_e": 2.979767591688368,
+        "ci": [
+          2.876399054421319,
+          3.085715011596679
+        ],
+        "n_items": 7200
+      },
+      "block_5": {
+        "mean_e": 2.2013080427381726,
+        "ci": [
+          2.10545309914483,
+          2.294029939227634
+        ],
+        "n_items": 7200
+      },
+      "block_6": {
+        "mean_e": 1.5372394307454427,
+        "ci": [
+          1.4628717969258627,
+          1.60815036116706
+        ],
+        "n_items": 7200
+      },
+      "block_7": {
+        "mean_e": 1.4496853383382162,
+        "ci": [
+          1.3796898318396675,
+          1.5144606846703423
+        ],
+        "n_items": 7200
+      },
+      "block_8": {
+        "mean_e": 1.0272166951497397,
+        "ci": [
+          0.994807572470771,
+          1.0573907672034368
+        ],
+        "n_items": 7200
+      },
+      "block_9": {
+        "mean_e": 0.3708976321750217,
+        "ci": [
+          0.35695602544148763,
+          0.38347840139600964
+        ],
+        "n_items": 7200
+      },
+      "block_10": {
+        "mean_e": 0.27723641289605033,
+        "ci": [
+          0.2668314266204834,
+          0.28730777062310114
+        ],
+        "n_items": 7200
+      },
+      "block_11": {
+        "mean_e": 0.1191283925374349,
+        "ci": [
+          0.11454256863064236,
+          0.12318539174397787
+        ],
+        "n_items": 7200
+      }
+    },
+    "terminal_points": {
+      "ln_f": {
+        "mean_e": 0.0935359107123481,
+        "ci": [
+          0.08991699981689454,
+          0.09677996423509386
+        ],
+        "n_items": 7200
+      }
+    },
+    "n_items": 100800
+  },
+  "controls": {
+    "same_number": {
+      "points": {
+        "embedding": {
+          "mean_e": -0.015356275770399306,
+          "ci": [
+            -0.0329289182027181,
+            0.0024537866380479516
+          ],
+          "n_items": 7200
+        },
+        "block_0": {
+          "mean_e": -0.012707265218098958,
+          "ci": [
+            -0.02898216904534234,
+            0.00428289477030436
+          ],
+          "n_items": 7200
+        },
+        "block_1": {
+          "mean_e": -0.0031564076741536456,
+          "ci": [
+            -0.01676794793870714,
+            0.010490750630696611
+          ],
+          "n_items": 7200
+        },
+        "block_2": {
+          "mean_e": 0.0012085045708550347,
+          "ci": [
+            -0.01242872789171007,
+            0.014810569339328325
+          ],
+          "n_items": 7200
+        },
+        "block_3": {
+          "mean_e": -0.002636227077907986,
+          "ci": [
+            -0.017338887532552083,
+            0.011736417346530486
+          ],
+          "n_items": 7200
+        },
+        "block_4": {
+          "mean_e": -0.0029123942057291668,
+          "ci": [
+            -0.02006060642666287,
+            0.014386442820231113
+          ],
+          "n_items": 7200
+        },
+        "block_5": {
+          "mean_e": -0.0019758945041232637,
+          "ci": [
+            -0.014754312091403538,
+            0.011196596993340366
+          ],
+          "n_items": 7200
+        },
+        "block_6": {
+          "mean_e": -0.003136622111002604,
+          "ci": [
+            -0.011206914689805772,
+            0.005288950390285914
+          ],
+          "n_items": 7200
+        },
+        "block_7": {
+          "mean_e": -0.001999842325846354,
+          "ci": [
+            -0.012082256952921549,
+            0.008475586573282878
+          ],
+          "n_items": 7200
+        },
+        "block_8": {
+          "mean_e": 6.590101453993056e-05,
+          "ci": [
+            -0.011126867718166775,
+            0.011881668726603185
+          ],
+          "n_items": 7200
+        },
+        "block_9": {
+          "mean_e": -0.0003778500027126736,
+          "ci": [
+            -0.005196139441596137,
+            0.00452306705050998
+          ],
+          "n_items": 7200
+        },
+        "block_10": {
+          "mean_e": -0.0005300140380859375,
+          "ci": [
+            -0.004546868642171223,
+            0.003496799045138888
+          ],
+          "n_items": 7200
+        },
+        "block_11": {
+          "mean_e": 0.00016118367513020832,
+          "ci": [
+            -0.0024758663177490235,
+            0.002893561681111653
+          ],
+          "n_items": 7200
+        }
+      },
+      "n_items": 100800,
+      "n_seeds": 1
+    },
+    "random": {
+      "points": {
+        "embedding": {
+          "mean_e": 0.032822678177445025,
+          "ci": [
+            0.02604311469749168,
+            0.0394686749069779
+          ],
+          "n_items": 21600
+        },
+        "block_0": {
+          "mean_e": 0.013996240121346933,
+          "ci": [
+            0.005916277143690321,
+            0.021324991438123914
+          ],
+          "n_items": 21600
+        },
+        "block_1": {
+          "mean_e": 0.005551232231987847,
+          "ci": [
+            -0.0019327030181884764,
+            0.01291354970578794
+          ],
+          "n_items": 21600
+        },
+        "block_2": {
+          "mean_e": 0.02353994298864294,
+          "ci": [
+            0.014800367991129557,
+            0.0319896915577076
+          ],
+          "n_items": 21600
+        },
+        "block_3": {
+          "mean_e": 0.02908924244068287,
+          "ci": [
+            0.023804526364361797,
+            0.03436958256474248
+          ],
+          "n_items": 21600
+        },
+        "block_4": {
+          "mean_e": 0.029482800519024886,
+          "ci": [
+            0.024833113211172597,
+            0.03396741577431007
+          ],
+          "n_items": 21600
+        },
+        "block_5": {
+          "mean_e": 0.06627013029875578,
+          "ci": [
+            0.06079986494558829,
+            0.07193602922227647
+          ],
+          "n_items": 21600
+        },
+        "block_6": {
+          "mean_e": 0.0010481883861400464,
+          "ci": [
+            -0.0018693596168800636,
+            0.003656053189878106
+          ],
+          "n_items": 21600
+        },
+        "block_7": {
+          "mean_e": 0.005023235744900174,
+          "ci": [
+            0.0025095712167245367,
+            0.00720744627493399
+          ],
+          "n_items": 21600
+        },
+        "block_8": {
+          "mean_e": 0.010186394585503472,
+          "ci": [
+            0.008557558130334925,
+            0.011866706283004196
+          ],
+          "n_items": 21600
+        },
+        "block_9": {
+          "mean_e": -0.0007717528166594329,
+          "ci": [
+            -0.0021417444723623768,
+            0.0005581882618091723
+          ],
+          "n_items": 21600
+        },
+        "block_10": {
+          "mean_e": 0.011884579128689236,
+          "ci": [
+            0.010614910902800383,
+            0.013075478377165618
+          ],
+          "n_items": 21600
+        },
+        "block_11": {
+          "mean_e": -0.00017487137405960648,
+          "ci": [
+            -0.00025088154828106915,
+            -0.00010242236102068868
+          ],
+          "n_items": 21600
+        }
+      },
+      "n_items": 302400,
+      "n_seeds": 3
+    },
+    "full_residual": {
+      "points": {
+        "embedding": {
+          "mean_e": 6.423576232208602,
+          "ci": [
+            6.244696027821508,
+            6.584856224060058
+          ],
+          "n_items": 6960
+        },
+        "block_0": {
+          "mean_e": 6.421792058835084,
+          "ci": [
+            6.246169813528828,
+            6.581161193628421
+          ],
+          "n_items": 6960
+        },
+        "block_1": {
+          "mean_e": 6.319333499601518,
+          "ci": [
+            6.1440352759964165,
+            6.479051007895634
+          ],
+          "n_items": 6960
+        },
+        "block_2": {
+          "mean_e": 6.039791396568561,
+          "ci": [
+            5.86787966213007,
+            6.195576978003841
+          ],
+          "n_items": 6960
+        },
+        "block_3": {
+          "mean_e": 5.058799208717785,
+          "ci": [
+            4.8947044361596825,
+            5.215779425083906
+          ],
+          "n_items": 6960
+        },
+        "block_4": {
+          "mean_e": 4.893840737178408,
+          "ci": [
+            4.7278279157616625,
+            5.05330419650023
+          ],
+          "n_items": 6960
+        },
+        "block_5": {
+          "mean_e": 4.016260098862922,
+          "ci": [
+            3.8446712119003825,
+            4.1738265201963225
+          ],
+          "n_items": 6960
+        },
+        "block_6": {
+          "mean_e": 2.439556209520362,
+          "ci": [
+            2.336975002069583,
+            2.536759967146249
+          ],
+          "n_items": 6960
+        },
+        "block_7": {
+          "mean_e": 2.40082393076228,
+          "ci": [
+            2.298022699027226,
+            2.498117134927333
+          ],
+          "n_items": 6960
+        },
+        "block_8": {
+          "mean_e": 2.399377248479032,
+          "ci": [
+            2.29643216166003,
+            2.4969575965267485
+          ],
+          "n_items": 6960
+        },
+        "block_9": {
+          "mean_e": 1.9606906233162715,
+          "ci": [
+            1.8748687246476097,
+            2.0440169119560854
+          ],
+          "n_items": 6960
+        },
+        "block_10": {
+          "mean_e": 1.9105623267162806,
+          "ci": [
+            1.829290142936268,
+            1.9876047406251403
+          ],
+          "n_items": 6960
+        },
+        "block_11": {
+          "mean_e": 0.7218631963620241,
+          "ci": [
+            0.696761439093228,
+            0.7455096663551768
+          ],
+          "n_items": 6960
+        }
+      },
+      "n_items": 97440,
+      "n_seeds": 1
+    }
+  },
+  "secondary": {
+    "terminal_block_11_by_template": {
+      "attractor": {
+        "mean_e": 0.0,
+        "ci": [
+          0.0,
+          0.0
+        ],
+        "n_items": 5760
+      },
+      "near": {
+        "mean_e": 0.0,
+        "ci": [
+          0.0,
+          0.0
+        ],
+        "n_items": 720
+      },
+      "simple": {
+        "mean_e": 1.191283925374349,
+        "ci": [
+          1.1454256863064236,
+          1.2318539174397787
+        ],
+        "n_items": 720
+      }
+    },
+    "terminal_ln_f_by_template": {
+      "attractor": {
+        "mean_e": 0.0,
+        "ci": [
+          0.0,
+          0.0
+        ],
+        "n_items": 5760
+      },
+      "near": {
+        "mean_e": 0.0,
+        "ci": [
+          0.0,
+          0.0
+        ],
+        "n_items": 720
+      },
+      "simple": {
+        "mean_e": 0.9353591071234809,
+        "ci": [
+          0.8991699981689454,
+          0.9677996423509386
+        ],
+        "n_items": 720
+      }
+    },
+    "number_donor_consistent_rate": {
+      "rate": 0.8706746031746032,
+      "ci": [
+        0.8698211805555555,
+        0.87125
+      ],
+      "n_items": 100800
+    },
+    "same_number_donor_consistent_rate": {
+      "rate": 0.4337797619047619,
+      "ci": [
+        0.40791617063492064,
+        0.45839384920634924
+      ],
+      "n_items": 100800
+    },
+    "full_residual_donor_consistent_rate": {
+      "rate": 0.8713772577996716,
+      "ci": [
+        0.8712746305418719,
+        0.8714285714285714
+      ],
+      "n_items": 97440
+    },
+    "random_donor_consistent_rate": {
+      "rate": 0.4828935185185185,
+      "ci": [
+        0.4774299768518519,
+        0.48827190806878307
+      ],
+      "n_items": 302400
+    },
+    "flip_rate": {
+      "rate": 0.3459325396825397,
+      "ci": [
+        0.3340674603174603,
+        0.35652901785714286
+      ],
+      "n_items": 100800
+    },
+    "subgroups": {
+      "template_simple": {
+        "mean_e": 3.778673341539171,
+        "ci": [
+          3.649640501415919,
+          3.893017800951761
+        ],
+        "n_items": 10080
+      },
+      "template_near": {
+        "mean_e": 2.341875639415923,
+        "ci": [
+          2.2555100839100186,
+          2.423489351272583
+        ],
+        "n_items": 10080
+      },
+      "template_attractor": {
+        "mean_e": 2.0474492867787677,
+        "ci": [
+          1.9799533833208538,
+          2.1111818744833504
+        ],
+        "n_items": 80640
+      },
+      "stratum_transparent": {
+        "mean_e": 2.24811117182333,
+        "ci": [
+          2.173502432370732,
+          2.319826405641263
+        ],
+        "n_items": 90720
+      },
+      "stratum_nontransparent": {
+        "mean_e": 2.2671427287752666,
+        "ci": [
+          2.0543345452868746,
+          2.4429841827210925
+        ],
+        "n_items": 10080
+      },
+      "attractor_same": {
+        "mean_e": 2.1429835062178353,
+        "ci": [
+          2.071681137274182,
+          2.2087522226288203
+        ],
+        "n_items": 40320
+      },
+      "attractor_opposite": {
+        "mean_e": 1.9519150673397003,
+        "ci": [
+          1.8869770568514626,
+          2.0137597010249184
+        ],
+        "n_items": 40320
+      },
+      "baseline_agreement_stratum_transparent": {
+        "mean_a": 3.194557707986714,
+        "ci": [
+          3.103169916882927,
+          3.274839249128177
+        ],
+        "n_items": 6480
+      },
+      "baseline_agreement_stratum_nontransparent": {
+        "mean_a": 3.3245821634928387,
+        "ci": [
+          3.1836486223008897,
+          3.452684881422255
+        ],
+        "n_items": 720
+      }
+    }
+  },
+  "selectivity_v10": {
+    "embedding": 0.2178933588512506,
+    "block_0": 0.24555134660554578,
+    "block_1": 0.2705171819319955,
+    "block_2": 0.2936898113862949,
+    "block_3": 0.30769265719601524,
+    "block_4": 0.32667560709642207,
+    "block_5": 0.32852035213827535,
+    "block_6": 0.3294710405385707,
+    "block_7": 0.33767746185343095,
+    "block_8": 0.33382456507453084,
+    "block_9": 0.3416189249020044,
+    "block_10": 0.34693140369106634,
+    "block_11": 0.3527226710169744,
+    "ln_f": 0.3544059002810295
+  },
+  "conclusion": "Replacing only the subject representation's projection on the decoded noun-number direction with the projection from an opposite-number donor shifted Pythia-160M's verb-number preference toward the donor at ['embedding', 'block_0', 'block_1', 'block_2', 'block_3', 'block_4', 'block_5', 'block_6', 'block_7', 'block_8', 'block_9', 'block_10', 'block_11'], relative to no-op, same-number, and norm-matched random-direction controls. This is evidence that the decoded direction makes a causal contribution to agreement behaviour under the tested intervention."
+}

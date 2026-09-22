@@ -409,7 +409,27 @@ def main() -> None:  # pragma: no cover - slow path (reads cached outputs)
 
     num_items = items[items["condition"] == "number"]
     primary = per_point_effect(num_items, n_res, seed, points)
-    snap["primary"] = {"points": primary, "n_items": len(num_items)}
+    # terminal points (ln_f) reported separately, not on the causal depth axis
+    terminal_points = cfg["intervention"]["terminal_points"]
+    primary_terminal = per_point_effect(num_items, n_res, seed, terminal_points)
+    snap["primary"] = {
+        "points": primary,
+        "terminal_points": primary_terminal,
+        "n_items": len(num_items),
+    }
+
+    # causal-architecture diagnostic (ADR 006 / brief section 14): a subject-position
+    # patch after the final block has no downstream route to a LATER prediction position,
+    # so block_11 / ln_f effects must come only from templates where the subject IS the
+    # final position (simple). Reported per template; not part of the primary estimand.
+    for diag_point in ("block_11", "ln_f"):
+        diag = {}
+        for tid, sub in num_items[num_items["point"] == diag_point].groupby("template_id"):
+            lo, mean, hi = cluster_mean_bootstrap(
+                sub["e"].to_numpy(), sub["lemma"].to_numpy(), n_res, seed=seed
+            )
+            diag[tid] = {"mean_e": float(mean), "ci": [lo, hi], "n_items": len(sub)}
+        snap["secondary"][f"terminal_{diag_point}_by_template"] = diag
 
     controls = {}
     for cond in ("same_number", "random", "full_residual"):

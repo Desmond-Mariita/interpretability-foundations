@@ -122,6 +122,26 @@ literature is native; Wang et al. 2022), and pretrained-SAE feature inspection v
 `sae-lens` (GPT-2-small residual SAEs across all layers are available, per the `sae-lens`
 registry).
 
+## v1.1 -- Causal number-intervention (done; ADR 006)
+
+v1.1 asked: **does the decoded noun-number direction causally drive agreement
+behaviour?** Pre-registered in
+[ADR 006](../../docs/decisions/006-pythia-number-agreement-causal-intervention.md)
+(freeze `v1.1-design-freeze-5`), staying on Pythia-160M rather than following the ADR 005
+GPT-2 deferral.
+
+**Headline.** The competence gate passed decisively (paired subject-number effect 7.20,
+CI [7.06, 7.33]; directional accuracy 1.000). Replacing only the subject's projection on
+the decoded number direction with an opposite-number donor's projection shifted the verb
+logit contrast toward the donor number **at every layer** (E = 4.84 at the embedding,
+decaying to 0.12 at block_11; all 95% lemma-cluster CIs above zero), with same-number
+(|E| <= 0.015) and norm-matched random-direction (|E| <= 0.066) controls at zero and the
+full-residual positive control reaching 6.42. Selectivity *rises* with depth while the
+causal effect *decays*: decodability and causal contribution diverge.
+
+Full write-up, figures, provenance:
+[V11_CAUSAL_REPORT.md](V11_CAUSAL_REPORT.md).
+
 ## Limitations
 
 - Probing tells us what is linearly decodable; it does not show what the model uses.

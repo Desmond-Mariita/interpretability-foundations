@@ -12,6 +12,17 @@ All notable changes to this repository are documented here. Format follows
 - Project 5 (`05-mechanistic-pythia`): per-layer linear probes on Pythia-160M with
   Hewitt & Liang control tasks (selectivity by depth) on UD English-EWT; pure
   `awake.eval.probing` core + cluster-bootstrap helpers.
+- Project 5 v1.1 (`05-mechanistic-pythia`): pre-registered causal number-intervention
+  study (ADR 006, design freeze `v1.1-design-freeze-5`). Competence gate passed
+  (paired subject-number effect 7.20 [7.06, 7.33]; directional accuracy 1.000).
+  Opposite-number direction patches shift the verb contrast toward the donor at every
+  layer (E = 4.84 at embedding, decaying to 0.12 at block_11; all CIs > 0); same-number
+  and norm-matched random-direction controls at zero; full-residual positive control
+  6.42. Selectivity rises with depth while the causal effect decays. v1 claim cleanup:
+  "emergence" -> peak-selectivity language; falling-control claim narrowed; CI-overlap
+  rule marked descriptive. Pure `awake.eval.causal` core (direction algebra, patch,
+  sign conventions, lemma-cluster bootstrap) with unit tests.
+
 
 #### Project 4 (`04-vqa-aokvqa`)
 - Project 4 (`04-vqa-aokvqa`): caption-then-LLM vs direct-VLM A-OKVQA pipelines with a
