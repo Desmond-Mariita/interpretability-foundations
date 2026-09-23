@@ -39,8 +39,7 @@ def _module_markers(tree: ast.Module) -> set[str]:
             continue
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         is_pytestmark = any(
-            isinstance(target, ast.Name) and target.id == "pytestmark"
-            for target in targets
+            isinstance(target, ast.Name) and target.id == "pytestmark" for target in targets
         )
         if is_pytestmark:
             markers |= _marker_names(node)
@@ -52,11 +51,7 @@ def _test_files() -> list[Path]:
     for root in TEST_ROOTS:
         if root.exists():
             files.update(root.rglob("test_*.py"))
-    kept = [
-        path
-        for path in files
-        if "legacy" not in path.parts and "notebooks" not in path.parts
-    ]
+    kept = [path for path in files if "legacy" not in path.parts and "notebooks" not in path.parts]
     return sorted(kept)
 
 
@@ -94,9 +89,7 @@ def _violations(path: Path) -> list[str]:
                 continue
             marks = class_marks | _decorator_markers(method)
             if not marks:
-                violations.append(
-                    f"{path.relative_to(ROOT)}::{node.name}::{method.name}"
-                )
+                violations.append(f"{path.relative_to(ROOT)}::{node.name}::{method.name}")
     return violations
 
 
