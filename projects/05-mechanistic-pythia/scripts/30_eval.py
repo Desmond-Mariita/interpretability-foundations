@@ -173,7 +173,7 @@ def main() -> None:  # pragma: no cover - slow/real-run path
         up = " [UNDERPOWERED]" if props[prop].get("underpowered") else ""
         ax.set_title(
             f"{prop}: probe vs control by depth -- peak {em['peak']}, "
-            f"emerges {em['earliest_within_peak_ci']}{up}",
+            f"within peak CI from {em['earliest_within_peak_ci']} (descriptive){up}",
             fontsize=9,
         )
         ax.legend(loc="lower right", fontsize=7)
@@ -194,7 +194,7 @@ def main() -> None:  # pragma: no cover - slow/real-run path
     ax.set_ylabel("selectivity (balanced-acc gain over control)")
     ax.set_xticks(xs)
     ax.set_xticklabels(xt, fontsize=7)
-    ax.set_title("Where each property emerges: selectivity by depth (peak circled)", fontsize=9)
+    ax.set_title("Selectivity by depth across properties (peaks circled; descriptive)", fontsize=9)
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(ASSETS / "hero.png", dpi=150)

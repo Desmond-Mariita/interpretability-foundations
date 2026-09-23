@@ -3,6 +3,35 @@
 from __future__ import annotations
 
 
+def parse_conllu_lexicon(text: str) -> list[dict]:
+    """Parse CoNLL-U text into per-token dicts for v1.1 noun-lexicon building.
+
+    Unlike :func:`parse_conllu`, this keeps the LEMMA field and drops sentence grouping --
+    the lexicon only needs per-token ``{lemma, surface, upos, number}``. Multiword/empty
+    rows (ID containing ``-``/``.``) and comment lines are skipped, as in ``parse_conllu``.
+
+    Args:
+        text: CoNLL-U file contents.
+
+    Returns:
+        List of per-token dicts (one per token, in file order).
+    """
+    tokens: list[dict] = []
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.split("\t")
+        if "-" in cols[0] or "." in cols[0]:
+            continue
+        feats = cols[5]
+        number = ""
+        for f in feats.split("|"):
+            if f.startswith("Number="):
+                number = f.split("=", 1)[1]
+        tokens.append({"lemma": cols[2], "surface": cols[1], "upos": cols[3], "number": number})
+    return tokens
+
+
 def parse_conllu(text: str) -> list[dict]:
     """Parse CoNLL-U text into per-sentence dicts.
 

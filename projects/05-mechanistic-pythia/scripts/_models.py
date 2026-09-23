@@ -29,17 +29,36 @@ def align_words_to_tokens(
     return out
 
 
-def load_pythia(model_id: str, revision: str, device: str = "cpu"):  # pragma: no cover - slow
-    """Load a frozen Pythia (GPT-NeoX) model + Fast tokenizer (eval, no grad)."""
+def load_pythia(
+    model_id: str, revision: str, device: str = "cpu", dtype=None
+):  # pragma: no cover - slow
+    """Load a frozen Pythia (GPT-NeoX) model + Fast tokenizer (eval, no grad).
+
+    ``dtype`` selects the model weight dtype (default None = the checkpoint's config
+    dtype, fp16). The v1.1 behavioural passes pass ``torch.float32``: at the checkpoint's
+    native fp16 the logit scale (~835) quantizes to ~1 ulp, so the fp32 readout is used
+    for the intervention study (recorded in ADR 006).
+    """
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained(model_id, revision=revision)
-    model = AutoModelForCausalLM.from_pretrained(model_id, revision=revision).to(device).eval()
+    model = (
+        AutoModelForCausalLM.from_pretrained(model_id, revision=revision, dtype=dtype)
+        .to(device)
+        .eval()
+    )
     for p in model.parameters():
         p.requires_grad_(False)
     torch.set_grad_enabled(False)
     return model, tok
+
+
+def load_tokenizer(model_id: str, revision: str):  # pragma: no cover - slow
+    """Load only the pinned Fast tokenizer (no model weights; used by 40_stimuli)."""
+    from transformers import AutoTokenizer
+
+    return AutoTokenizer.from_pretrained(model_id, revision=revision)
 
 
 def extract_points(
