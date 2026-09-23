@@ -33,7 +33,7 @@ def _marker_names(node: ast.AST) -> set[str]:
 def _module_markers(tree: ast.Module) -> set[str]:
     markers: set[str] = set()
     for node in tree.body:
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+        if isinstance(node, ast.Assign | ast.AnnAssign):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
             if any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets):
                 markers |= _marker_names(node)
@@ -45,7 +45,9 @@ def _test_files() -> list[Path]:
     for root in TEST_ROOTS:
         if root.exists():
             files.update(root.rglob("test_*.py"))
-    return sorted(p for p in files if "legacy" not in p.parts and "notebooks" not in p.parts)
+    return sorted(
+        p for p in files if "legacy" not in p.parts and "notebooks" not in p.parts
+    )
 
 
 def _violations(path: Path) -> list[str]:
@@ -54,17 +56,29 @@ def _violations(path: Path) -> list[str]:
     violations: list[str] = []
 
     for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
-            marks = module_marks | set().union(*(_marker_names(d) for d in node.decorator_list))
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith(
+            "test_"
+        ):
+            marks = module_marks | set().union(
+                *(_marker_names(d) for d in node.decorator_list)
+            )
             if not marks:
                 violations.append(f"{path.relative_to(ROOT)}::{node.name}")
         elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-            class_marks = module_marks | set().union(*(_marker_names(d) for d in node.decorator_list))
+            class_marks = module_marks | set().union(
+                *(_marker_names(d) for d in node.decorator_list)
+            )
             for method in node.body:
-                if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name.startswith("test_"):
-                    marks = class_marks | set().union(*(_marker_names(d) for d in method.decorator_list))
+                if isinstance(
+                    method, ast.FunctionDef | ast.AsyncFunctionDef
+                ) and method.name.startswith("test_"):
+                    marks = class_marks | set().union(
+                        *(_marker_names(d) for d in method.decorator_list)
+                    )
                     if not marks:
-                        violations.append(f"{path.relative_to(ROOT)}::{node.name}::{method.name}")
+                        violations.append(
+                            f"{path.relative_to(ROOT)}::{node.name}::{method.name}"
+                        )
     return violations
 
 
