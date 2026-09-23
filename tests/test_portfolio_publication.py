@@ -28,7 +28,7 @@ def test_root_readme_uses_repaired_p2_metrics() -> None:
 
 def test_root_readme_preserves_p3_paired_uncertainty() -> None:
     """Require the fused-image paired interval instead of a categorical winner claim."""
-    readme = (ROOT / "README.md").read_text(encoding="utf-8").replace("−", "-")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8").replace("\u2212", "-")
     metrics = json.loads((ROOT / "projects/03-multimodal-hatefulmemes/metrics.json").read_text())
     diff = metrics["auroc_diffs"]["fused_vs_image"]
 
