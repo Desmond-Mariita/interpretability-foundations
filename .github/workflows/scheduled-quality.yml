@@ -1,0 +1,52 @@
+name: scheduled-quality
+
+on:
+  schedule:
+    - cron: "17 4 * * 0"
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Repository hygiene
+        run: uv run pre-commit run --all-files
+
+      - name: Enforce test markers
+        run: uv run python scripts/check_test_markers.py
+
+      - name: Run every non-slow test
+        run: >
+          uv run pytest -m "not slow"
+          --junitxml=scheduled-test-results.xml
+          --cov-report=term-missing
+          --cov-report=xml:scheduled-coverage.xml
+
+      - name: Dependency vulnerability audit
+        continue-on-error: true
+        run: uvx pip-audit
+
+      - name: Upload scheduled reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-quality-reports
+          path: |
+            scheduled-test-results.xml
+            scheduled-coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14
