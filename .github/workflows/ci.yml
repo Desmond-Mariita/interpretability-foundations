@@ -27,6 +27,10 @@ jobs:
       - name: Sync locked dependencies
         run: uv sync --frozen --all-extras
 
+      - name: Show marker-checker format diff
+        continue-on-error: true
+        run: uv run ruff format --diff scripts/check_test_markers.py
+
       - name: Repository hygiene (pre-commit)
         run: uv run pre-commit run --all-files
 
