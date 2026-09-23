@@ -65,7 +65,9 @@ def _is_test_function(node: ast.AST) -> bool:
     return is_function and node.name.startswith("test_")
 
 
-def _decorator_markers(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> set[str]:
+def _decorator_markers(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+) -> set[str]:
     markers: set[str] = set()
     for decorator in node.decorator_list:
         markers |= _marker_names(decorator)
