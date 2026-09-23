@@ -18,14 +18,16 @@ TEST_ROOTS = (ROOT / "tests", ROOT / "projects", ROOT / "apps")
 def _marker_names(node: ast.AST) -> set[str]:
     names: set[str] = set()
     for child in ast.walk(node):
-        if (
+        is_marker = (
             isinstance(child, ast.Attribute)
             and isinstance(child.value, ast.Attribute)
             and isinstance(child.value.value, ast.Name)
-            and child.value.value.id == "pytest"
-            and child.value.attr == "mark"
-            and child.attr in APPROVED
-        ):
+        )
+        if not is_marker:
+            continue
+        if child.value.value.id != "pytest" or child.value.attr != "mark":
+            continue
+        if child.attr in APPROVED:
             names.add(child.attr)
     return names
 
@@ -33,10 +35,15 @@ def _marker_names(node: ast.AST) -> set[str]:
 def _module_markers(tree: ast.Module) -> set[str]:
     markers: set[str] = set()
     for node in tree.body:
-        if isinstance(node, ast.Assign | ast.AnnAssign):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            if any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets):
-                markers |= _marker_names(node)
+        if not isinstance(node, ast.Assign | ast.AnnAssign):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        is_pytestmark = any(
+            isinstance(target, ast.Name) and target.id == "pytestmark"
+            for target in targets
+        )
+        if is_pytestmark:
+            markers |= _marker_names(node)
     return markers
 
 
@@ -45,9 +52,24 @@ def _test_files() -> list[Path]:
     for root in TEST_ROOTS:
         if root.exists():
             files.update(root.rglob("test_*.py"))
-    return sorted(
-        p for p in files if "legacy" not in p.parts and "notebooks" not in p.parts
-    )
+    kept = [
+        path
+        for path in files
+        if "legacy" not in path.parts and "notebooks" not in path.parts
+    ]
+    return sorted(kept)
+
+
+def _is_test_function(node: ast.AST) -> bool:
+    is_function = isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    return is_function and node.name.startswith("test_")
+
+
+def _decorator_markers(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> set[str]:
+    markers: set[str] = set()
+    for decorator in node.decorator_list:
+        markers |= _marker_names(decorator)
+    return markers
 
 
 def _violations(path: Path) -> list[str]:
@@ -56,29 +78,23 @@ def _violations(path: Path) -> list[str]:
     violations: list[str] = []
 
     for node in tree.body:
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name.startswith(
-            "test_"
-        ):
-            marks = module_marks | set().union(
-                *(_marker_names(d) for d in node.decorator_list)
-            )
+        if _is_test_function(node):
+            marks = module_marks | _decorator_markers(node)
             if not marks:
                 violations.append(f"{path.relative_to(ROOT)}::{node.name}")
-        elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-            class_marks = module_marks | set().union(
-                *(_marker_names(d) for d in node.decorator_list)
-            )
-            for method in node.body:
-                if isinstance(
-                    method, ast.FunctionDef | ast.AsyncFunctionDef
-                ) and method.name.startswith("test_"):
-                    marks = class_marks | set().union(
-                        *(_marker_names(d) for d in method.decorator_list)
-                    )
-                    if not marks:
-                        violations.append(
-                            f"{path.relative_to(ROOT)}::{node.name}::{method.name}"
-                        )
+            continue
+
+        if not isinstance(node, ast.ClassDef) or not node.name.startswith("Test"):
+            continue
+        class_marks = module_marks | _decorator_markers(node)
+        for method in node.body:
+            if not _is_test_function(method):
+                continue
+            marks = class_marks | _decorator_markers(method)
+            if not marks:
+                violations.append(
+                    f"{path.relative_to(ROOT)}::{node.name}::{method.name}"
+                )
     return violations
 
 
