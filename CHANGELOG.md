@@ -6,6 +6,36 @@ All notable changes to this repository are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-23
+
+Final portfolio release: five completed projects, corrected scientific claims, reproducible quality gates, and a shared research-engineering standard.
+
+### Portfolio closeout
+
+- Reconciled root-level claims with the final frozen P1–P5 evidence.
+- Added `docs/PORTFOLIO_SUMMARY.md` as the authoritative cross-project summary.
+- Added publication-consistency guards so superseded root-level claims do not silently return.
+- Established the repository-wide quality baseline in PR #6: frozen dependency sync, full pre-commit CI, Gitleaks, explicit test markers, scheduled quality checks, and future-project standards.
+- Promoted the repository from the earlier v0.x milestone state to the completed five-project portfolio.
+
+### Final claim corrections
+
+- **P1:** Brier score is reported as overall probabilistic error; calibration claims rely on the reliability analysis rather than Brier alone.
+- **P2:** superseded v1 explainer results are not portfolio evidence. Under the corrected v2 protocol, Integrated Gradients has the largest measured perturbation-faithfulness effect among the evaluated methods (comprehensiveness 0.205; AOPC 0.168; rationale-overlap AUPRC 0.339).
+- **P3:** image contributions are larger on average under the Shapley analysis, but the paired fused−image AUROC interval includes zero; no categorical fused-vs-image performance winner is claimed.
+- **P4:** Delta is incremental answer recoverability from the supplied explanation under null visual input, not a grounding, correctness, or original-answer-faithfulness metric.
+- **P5:** the decoded noun-number direction shows direction-specific causal contribution under the tested intervention; no claim is made of uniqueness, necessity, complete mediation, a full grammar circuit, or grammatical understanding.
+
+### Final engineering state
+
+- P1–P5 merged and frozen.
+- All repository tests explicitly classified as unit, smoke, or slow.
+- Unit/smoke CI passes on the merged five-project portfolio.
+- Shared-library coverage remains above the 90% gate.
+- `CONTRIBUTING.md` and `docs/project-template/` define the mandatory baseline for future projects.
+
+
+
 ### Added
 
 #### Project 5 (`05-mechanistic-pythia`)
