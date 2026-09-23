@@ -12,7 +12,7 @@ concurrency:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -24,17 +24,29 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Sync dependencies
-        run: uv sync --all-extras
+      - name: Sync locked dependencies
+        run: uv sync --frozen --all-extras
 
-      - name: Lint
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
+      - name: Repository hygiene (pre-commit)
+        run: uv run pre-commit run --all-files
 
-      - name: Type check
-        run: uv run mypy src/awake/
+      - name: Enforce test markers
+        run: uv run python scripts/check_test_markers.py
 
       - name: Test (unit + smoke, 8-min budget)
         timeout-minutes: 8
-        run: uv run pytest -m "unit or smoke"
+        run: >
+          uv run pytest -m "unit or smoke"
+          --junitxml=test-results.xml
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports
+          path: |
+            test-results.xml
+            coverage.xml
+          if-no-files-found: ignore
