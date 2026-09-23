@@ -4,53 +4,70 @@
 [![Python](https://img.shields.io/badge/python-3.11-blue)](./pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-Five projects on making model decisions legible — from intrinsically interpretable models on
-critical-care data, through faithfulness benchmarking on text classifiers, modality
-decomposition for multimodal fusion, a comparison of two visual-question-answering pipelines,
-and a look inside a small transformer.
+A five-project research portfolio on model interpretability and explanation evaluation.
 
-**Why this matters for AI assurance.** Trustworthy-AI regulation (the EU AI Act's transparency
-and human-oversight duties for high-risk systems) increasingly asks a hard technical question:
-*does a model's explanation actually reflect how it decided?* These projects build and stress-test
-the methods that answer it — faithfulness metrics, modality attribution, calibration, and probing —
-the toolkit for auditing a model, not just reporting its accuracy.
+The portfolio progresses from **prediction → attribution → faithfulness → representation → mechanism**. Its common question is not whether a model can produce a plausible explanation, but what evidence a model uses, what an explanation measures, and when an interpretable representation is causally connected to behaviour.
 
-> **Status.** All five projects complete end-to-end on real data, with reproducible CI and a
-> shared evaluation library. See `CHANGELOG.md`.
+> **Status.** All five projects are complete, reproducible, and covered by the shared repository quality baseline. The authoritative portfolio summary is in [`docs/PORTFOLIO_SUMMARY.md`](docs/PORTFOLIO_SUMMARY.md).
 
 ![hero](projects/01-tabular-mimic/assets/frontier.png)
 
 ## Projects
 
-| | Project | Question | Headline result |
+| # | Project | Research question | Final headline result |
 |---|---|---|---|
-| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | What accuracy do interpretable models cost on ICU mortality risk? | Glassbox **EBM within 1.0 AUROC point of LightGBM** (0.879 vs 0.889) and **lowest Brier** of four models (0.075 vs 0.091). |
-| 2 | [`02-text-eraser`](projects/02-text-eraser) | Which text-classification explainer is actually *faithful* — and is faithful the same as *plausible*? | **No.** On the ERASER Movies benchmark, **Integrated Gradients is the only faithful explainer** (comprehensiveness 0.52 vs ~0.02–0.06; p < 0.001), yet every method barely beats random on agreement with human rationales. Confident saliency maps can be no more faithful than chance. |
-| 3 | [`03-multimodal-hatefulmemes`](projects/03-multimodal-hatefulmemes) | In a fused image+text decision, how much came from each modality? | **The image.** 2-player interventional modality Shapley: mean\|φ\| **image 0.84 vs text 0.68**; text-only ≈ chance (AUROC 0.575). Live Gradio Space. |
-| 4 | [`04-vqa-aokvqa`](projects/04-vqa-aokvqa) | Do caption-then-LLM explanations actually describe the *image*? | A vision-ablation probe with a paired baseline measures Δ = whether the image or the model's *own rationale* drives answer recovery — across caption-then-LLM, 3B and size-matched 7B direct-VLM pipelines on A-OKVQA. |
-| 5 | [`05-mechanistic-pythia`](projects/05-mechanistic-pythia) | Where in a small transformer does a property become linearly decodable — and is the decoded number direction *causally* used? | v1.0: per-layer linear probes on Pythia-160M with **Hewitt–Liang control tasks** (selectivity by depth). **v1.1: pre-registered causal intervention — the decoded noun-number direction causally shifts agreement at every layer (E = 4.84 → 0.12), with paired H3 contrasts positive and same-number/random controls much smaller (near zero, not identically zero).** |
+| 1 | [`01-tabular-mimic`](projects/01-tabular-mimic) | How much predictive performance is traded for intrinsic interpretability on ICU mortality risk? | On the held-out test set, EBM reached **AUROC 0.879** versus **0.889** for LightGBM and had the lowest **Brier score 0.075** versus 0.091 for LightGBM. Brier is reported as overall probabilistic error, not a stand-alone calibration claim. |
+| 2 | [`02-text-eraser`](projects/02-text-eraser) | Which explainer produces the largest measured perturbation-faithfulness effect, and how does that relate to rationale plausibility? | Under the corrected v2 protocol, **Integrated Gradients** had the largest measured comprehensiveness (**0.205**) and AOPC (**0.168**) among the evaluated methods. Its rationale-overlap AUPRC was **0.339**. Faithfulness and plausibility are reported as distinct constructs. |
+| 3 | [`03-multimodal-hatefulmemes`](projects/03-multimodal-hatefulmemes) | How much do image and text contribute to a fused classifier? | Fused AUROC was **0.711**, image-only **0.692**, text-only **0.575**. The paired fused−image AUROC difference was **+0.019 [−0.013, +0.054]**; fused−text was **+0.136 [+0.095, +0.177]**. Mean absolute Shapley contribution was **0.842 image vs 0.675 text**. |
+| 4 | [`04-vqa-aokvqa`](projects/04-vqa-aokvqa) | How much does a supplied explanation increase recovery of a model's original answer after visual input is removed? | Incremental answer recoverability under null visual input was **+0.380** for the caption→LLM pipeline, **+0.144** for Qwen2.5-VL-3B, and **+0.486** for Qwen2.5-VL-7B. This is a recoverability measure, not proof of original-answer faithfulness or grounding. |
+| 5 | [`05-mechanistic-pythia`](projects/05-mechanistic-pythia) | Does the linearly decoded noun-number direction causally contribute to subject–verb agreement behaviour? | Opposite-number direction patches shifted verb-number preference toward the donor across all 13 causal points (**E = 4.84 → 0.12**). Paired contrasts against same-number and norm-matched random controls were positive at every causal point, supporting direction-specific causal contribution under the tested intervention. |
 
-## How to read this
+## Portfolio progression
 
-- **Reviewers without a Python setup.** Open the pre-rendered notebook HTML linked from each
-  project README (`projects/NN-*/notebooks/*.html`).
-- **Engineers.** Start at `src/awake/` (the shared evaluation library) and `docs/decisions/`
-  (the ADRs — each project's load-bearing decisions and their trade-offs).
-- **Reproducers.** `just setup` from the repo root, then per-project `just data && just train && just eval`.
+| Stage | Project | What becomes stronger |
+|---|---|---|
+| Prediction | P1 | Compare interpretable and black-box predictors without overclaiming calibration. |
+| Attribution | P3 | Decompose a multimodal prediction into modality-level contributions. |
+| Faithfulness | P2 / P4 | Test explanation behaviour under perturbation or ablation rather than relying on plausibility alone. |
+| Representation | P5 v1.0 | Ask what information is linearly decodable across depth. |
+| Mechanism | P5 v1.1 | Intervene on a decoded direction and measure the resulting behavioural change. |
 
-## A note on data governance
+The progression is methodological, not a claim that later projects solve every limitation of earlier ones.
 
-Every project that uses gated or licensed data (MIMIC-IV, Meta Hateful Memes, ERASER) is
-**code-only**: the data and any data-derived embeddings are never committed or hosted, only the
-methods and aggregate results. See `docs/decisions/001-mimic-code-only.md` and ADR 003 — handling
-restricted data correctly is part of the work.
+## How to read the repository
+
+- **Portfolio reviewers:** start with [`docs/PORTFOLIO_SUMMARY.md`](docs/PORTFOLIO_SUMMARY.md), then the individual project READMEs.
+- **Engineers:** start with [`src/awake/`](src/awake/) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Scientific reviewers:** inspect the project REPORTs, ADRs in [`docs/decisions/`](docs/decisions/), and machine-readable metrics artifacts.
+- **Reproducers:** run `just setup`, then follow the per-project reproduction instructions.
+
+## Research-engineering baseline
+
+Repository-wide policy is defined in [`CONTRIBUTING.md`](CONTRIBUTING.md). In particular:
+
+- Python 3.11 + `uv.lock` define the supported environment.
+- CI runs the full pre-commit suite, Gitleaks, explicit test-marker enforcement, and the unit/smoke suite.
+- Shared-library coverage has a hard 90% threshold.
+- Every future project must document its research question, estimand, data/model identity, frozen configuration, authoritative metrics artifact, controls, uncertainty procedure, provenance, claim boundary, and limitations.
+- Passing tests establish code contracts; they do not by themselves establish scientific truth.
+
+## Data governance
+
+Projects using gated or licensed data are code-only where required. Restricted raw data and derived restricted embeddings are not committed. See the project ADRs in [`docs/decisions/`](docs/decisions/).
 
 ## Repository layout
 
+```text
+src/awake/             shared evaluation and plotting utilities
+projects/              five completed research projects
+apps/                  public demo application(s)
+docs/decisions/        architecture / scientific decision records
+docs/project-template/ required baseline for future projects
+legacy/v1/             preserved historical coursework
 ```
-src/awake/        shared evaluation + plotting utilities
-projects/         one folder per project; uniform internal layout
-apps/             HuggingFace Space (Gradio) for Project 3
-docs/decisions/   architecture decision records
-legacy/v1/        verbatim 2023 MSc coursework, preserved frozen
-```
+
+## Scope boundary
+
+This repository is a **completed five-project portfolio**. New research directions should be developed as separate milestones rather than by reopening frozen results without a material defect.
+
+Tutorial videos are a separate presentation layer and are not evidence for the scientific claims in the repository.
