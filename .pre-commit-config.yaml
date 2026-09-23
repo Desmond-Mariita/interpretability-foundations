@@ -9,7 +9,7 @@ repos:
       - id: trailing-whitespace
         exclude: '^projects/.*/notebooks/.*\.html$'
       - id: end-of-file-fixer
-        exclude: '^projects/(02-text-eraser|03-multimodal-hatefulmemes)/metrics\.json$'
+        exclude: '^projects/(02-text-eraser|03-multimodal-hatefulmemes)/metrics\.json$|^projects/05-mechanistic-pythia/assets/causal_metrics\.json$'
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
