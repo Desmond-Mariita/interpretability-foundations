@@ -7,7 +7,9 @@ repos:
     rev: v4.6.0
     hooks:
       - id: trailing-whitespace
+        exclude: '^projects/.*/notebooks/.*\.html$'
       - id: end-of-file-fixer
+        exclude: '^projects/(02-text-eraser|03-multimodal-hatefulmemes)/metrics\.json$|^projects/05-mechanistic-pythia/assets/causal_metrics\.json$'
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
@@ -15,11 +17,12 @@ repos:
         args: ["--maxkb=2000"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.15.13
     hooks:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
+        args: ["--check"]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2

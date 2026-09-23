@@ -4,10 +4,18 @@ set shell := ["bash", "-uc"]
 default:
     @just --list
 
-# Create venv + install dev deps + pre-commit hooks.
+# Reproduce the committed environment and install local pre-commit hooks.
 setup:
-    uv sync --all-extras
+    uv sync --frozen --all-extras
     uv run pre-commit install
+
+# Run the repository hygiene suite exactly as CI does.
+precommit:
+    uv run pre-commit run --all-files
+
+# Enforce unit/smoke/slow classification for every collected test.
+markers:
+    uv run python scripts/check_test_markers.py
 
 # Lint + format check.
 lint:
@@ -19,16 +27,20 @@ fix:
     uv run ruff check --fix .
     uv run ruff format .
 
-# Type check the shared library.
+# Type check the shared library. Future production targets are added incrementally.
 typecheck:
     uv run mypy src/awake/
 
-# Run unit + smoke tests (the CI budget).
+# Run unit + smoke tests (the PR CI budget).
 test:
     uv run pytest -m "unit or smoke"
 
-# Everything CI runs.
-ci: lint typecheck test
+# Run every non-slow test. Used by the scheduled quality workflow.
+test-nonslow:
+    uv run pytest -m "not slow"
+
+# Everything required in PR CI.
+ci: precommit markers test
 
 # Run the HF Space app locally.
 space:
